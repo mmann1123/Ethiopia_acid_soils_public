@@ -1,0 +1,15 @@
+Variable,Description,Source
+ACCADD,Travel time to Addis Ababa (minutes),OpenStreetMap
+BIO1,"Mean annual temperature (°C * 10, 1979-2013)",CHELSA
+BIO12,"Mean annual precipitation (mm/yr, 1979-2013)",CHELSA
+BIO15,"Mean rainfall seasonality (cv, 1979-2013)",CHELSA
+BIO7,"Mean annual temperature range (°C * 10, 1979-2013)",CHELSA
+DOR1,Distance to main roads (km),OpenStreetMap
+DOR2,Distance to any known road (km),OpenStreetMap
+DPOP1,Distance to city or town centers (km),OpenStreetMap
+DPOP2,Distance to village or hamlet centers (km),OpenStreetMap
+MDEM,Elevation above mean sea level (m),MERITDEM
+NPPA,"Average annual net primary productivity (kg/m2, 2000-2015)",Walsh et al. (2020)
+NPPS,Variance annual net primary productivity (2000-2015),Walsh et al. (2020)
+SLOPE,Slope (%),MERITDEM
+WPOP,Population density prediction (2015),WorldPop

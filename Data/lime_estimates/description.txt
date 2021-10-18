@@ -1,0 +1,7 @@
+lime_to_6_5
+
+is how many tons per hectare you need to get to ph 6.5  (in other words, if lime_to_6_5= .236 it would mean that you would need .236 Mt per hectare to rebalance to 6.5
+
+Obviously, if the soil is neutral (6.5 or above) you don’t need any lime
+
+Merge by EA_CODE

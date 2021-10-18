@@ -1,0 +1,3028 @@
+---
+title: "Estimating Acid Soil Effects on Cereal Crop Productivity in Ethiopia: A Prototype for Enhancing Crop Management"
+#author: "James M Warner, Michael L Mann, Jordan Chamberlin, Chilot Tizale"
+#date: "Apr 11, 2021"
+geometry: margin=2cm
+header-includes:
+   - \usepackage{setspace}
+   - \usepackage{biblatex}
+   - \doublespacing
+   - \usepackage{pdflscape}
+   - \newcommand{\blandscape}{\begin{landscape}}
+   - \newcommand{\elandscape}{\end{landscape}}
+   - \usepackage{dcolumn}
+   - \usepackage{rotating, graphicx}
+   - \usepackage{longtable}
+output:
+  word_document: 
+    reference_docx: ./Template.docx
+  html_document:
+    df_print: paged
+  pdf_document: 
+    fig_caption: false
+    toc: false
+    number_sections: true
+    # citation_package: biblatex
+bibliography: mybibfile.bib  #https://bookdown.org/yihui/rmarkdown-cookbook/bibliography.html  #https://www.zotero.org/styles?q=American%20Psychological%20Association
+csl: apa7.csl
+# link-citations: yes
+#  Cover page built in https://www.overleaf.com/project/606b5db00ec4e2dcf66e1e17
+---
+
+
+```{r setup, include=FALSE,cache=F}
+
+
+options(scipen = 999) 
+# unlink('/mnt/space/Dropbox/Ethiopia Soil Acidity 2019/Scripts/Soil_Acidity_Writeup_nocosts_final_cache', recursive = TRUE)
+rm(list=ls())
+
+#devtools::install_github("tidyverse/ggplot2")
+#devtools::install_github("davidgohel/flextable")
+#tinytex::install_tinytex()
+library(tinytex)
+tlmgr_search('/lineno.sty')   # search for times.sty
+library(sf)
+library(broom)
+library(car)
+library(raster)
+library(mgcv)
+library(mgcViz)
+library(officer)
+library(png)
+library(readstata13)
+library(dplyr)
+library(leaflet)
+library(tidyverse)
+library(plm)
+library(splines2)
+require(stats)
+library(splines)
+library(ggplot2)
+library(stargazer)
+library(reshape2)
+library(randomForest)
+library(stars)
+library(pdp)
+library(pander)
+library(caret)
+library(FinCal)
+library(tidyr)
+library(automap)
+library(flextable)
+library(officer)
+library(magrittr)
+library(rms)
+library(tidyselect)
+library(english)
+#library(itsadug)
+
+# set up numbering for figures/graphs etc
+Table_number = 1
+Figure_number = 1
+Formula_number = 1
+Foot_number = 1
+
+
+winsorize_x = function(x, cut = 0.01){
+  cut_point_top <- quantile(x, 1 - cut, na.rm = T)
+  cut_point_bottom <- quantile(x, cut, na.rm = T)
+  i = which(x >= cut_point_top) 
+  x[i] = cut_point_top
+  j = which(x <= cut_point_bottom)
+  x[j] = cut_point_bottom
+  return(x)
+}
+
+closest_loc = function(x, to_find){
+  which.min(abs(x - to_find))
+}
+
+p_pretty_sci = function(x){
+  if (x < 0.001){return('0.01')}
+  
+  else{
+    return(prettyNum(x, scientific=T, digits =2, big.mark=",") )
+  }
+}
+
+# knitr::knit_hooks$set(inline = function(x) { if(!is.numeric(x)){ x }else{ p_pretty_sci(x) } })
+knitr::knit_hooks$set(inline = function(x) { if(!is.numeric(x)){ x }else{ prettyNum(round(x,2), big.mark=",") } })
+
+ 
+
+knitr::opts_chunk$set(
+  echo = F,
+  message = FALSE,
+  #collapse = TRUE,
+  warning = F
+  #comment = "#>", 
+  #eval = !is.null(knitr::opts_knit$get("rmarkdown.pandoc.to"))
+)
+  #- \usepackage{eso-pic,graphicx,transparent}
+
+# standard boarder for flextable
+std_border = fp_border(color="grey", width = 1)
+
+
+my_gamtabs = function (model, caption = " ", label = "tab.gam", 
+    pnames = NA, snames = NA, ptab = NA, stab = NA, 
+    decimals=2, show_factor_coef = F,...) 
+  {
+      if (!requireNamespace("xtable", quietly = TRUE)) {
+          stop("Package 'xtable' needed for this function to work. Please install it.", 
+              call. = FALSE)
+      }
+      sum.gam <- model
+      if (!inherits(model, "summary.gam")) {
+          sum.gam <- summary(model)
+      }
+      
+      # ptab looks like factor results
+      if (is.na(ptab[1])) {
+          ptab = as.data.frame(sum.gam$p.table)
+      }
+      # stab is spline results 
+      if (is.na(stab[1])) {
+          stab = as.data.frame(sum.gam$s.table)
+      }
+      # replace factor names with pnames? 
+      if (!is.na(pnames[1])) {
+          rownames(ptab) = pnames
+      }
+      # replace spline names? 
+      if (!is.na(snames[1])) {
+          rownames(stab) = snames
+      }
+      colnames(ptab)[4] = "p-value"
+      colnames(ptab)[3] = "t-value"
+      ptab.cnames = colnames(ptab)
+      stab.cnames = colnames(stab)
+      stab.cnames[3] = "F-value"
+      colnames(ptab) = c("A", "B", "C", "D")
+      if (ncol(stab) != 0) {
+          colnames(stab) = colnames(ptab)
+      }
+      # join both tables 
+      tab = rbind(ptab, stab)
+      colnames(tab) = ptab.cnames
+      tab = round(tab, decimals)
+      m = data.frame(matrix(0, nrow(tab), ncol(tab)))
+      for (i in 1:nrow(tab)) {
+          for (j in 1:4) {
+              if ((j == 4) & (tab[i, j] < 0.01)) {
+                  m[i, j] = "< 0.01"
+              }
+              else {
+                  m[i, j] = sprintf(paste0("%3.",decimals,"f"), tab[i, j])
+              }
+          }
+      }
+      colnames(m) = colnames(tab)
+      rownames(m) = rownames(tab)
+      tab = m
+      tab2 = rbind(c(ptab.cnames), tab[1:nrow(ptab), ])
+      if (nrow(stab) > 0) {
+          tab2 = rbind(tab2, c(stab.cnames), tab[(nrow(ptab) + 
+              1):nrow(tab), ])
+      }
+      if (nrow(stab)) {
+          rownames(tab2)[(nrow(ptab) + 2)] = "B. smooth terms"
+      }
+      rownames(tab2)[1] = "A. parametric coefficients"
+      # for (i in 1:nrow(tab2)) {
+      #     if (tab2[i, 4] == "0") 
+      #         tab2[i, 4] = "< 0.0001"
+      #     if (length(grep("\\.", tab2[i, 2])) == 0) 
+      #         tab2[i, 2] = paste(tab2[i, 2], ".0000", sep = "")
+      # }
+      
+      # filter out factor names
+      tab3 =  row.names(tab2)[grepl('factor|factor', row.names(tab2))]
+      
+      if (show_factor_coef == T){
+          # remove factors
+          tab2 = tab2[!(grepl('factor|factor', row.names(tab2))),]
+          # rename factors and NA them 
+          tab3 = c('C. factor terms',unique(unlist(regmatches(tab3, gregexpr("\\(.*?\\)", tab3)))))
+          #insert factor
+          tab2[tab3,] = NA
+      }else{
+         factors = tab2[(grepl('factor|factor', row.names(tab2))),]
+         row.names(factors) =  str_remove(row.names(factors), "factor") 
+         factors = rbind(c("Estimate","Std. Error",'t-value','p-value'), factors)
+         row.names(factors)[1] = 'C. factor terms' 
+         tab2 = tab2[!(grepl('factor|factor', row.names(tab2))),]
+         tab2 = rbind(tab2, factors)
+      }
+    
+      tab2 %>% add_rownames() %>% select(-`Std. Error`) %>% flextable() %>% autofit() %>% border_inner_h(border = std_border ,part='body')  
+}
+
+PV_inf = function(r=0.15,n=5,fv=0,pmt=100,inf=0.1,type){
+  pv = 0
+  for (n in seq_len(n)-1){
+    pv = pv+ (pmt*(1+inf)^n)/(1+r)^n
+  }
+  return(pv*-1)
+}
+
+# check output type and set table output type based on this  https://bookdown.org/yihui/rmarkdown-cookbook/chunk-variable.html
+# if("word_document" %in% rmarkdown::all_output_formats(knitr::current_input() )){
+if(!is.null(knitr::opts_knit$get("rmarkdown.pandoc.to"))){  
+  if(knitr::opts_knit$get("rmarkdown.pandoc.to") == 'docx'){
+    is_word = TRUE
+  }else{is_word=FALSE}
+}else{is_word=T}
+
+```
+
+```{r cost analysis assumptions, warning=FALSE}
+# Here are some fertilizer prices by region for 2018.  I think we should use the Urea and NPS (the NPS has pretty much replaced DAP going forward).
+# 
+# Per 100 kgs (in Birr)
+#                     Dap       Urea     NPS
+# Tigray              1495      1327      1383
+# Amhara              1353      1229      1413
+# Oromia              1632      1272      1397
+# SNNP                1228      1157      1220
+
+  
+birr_convert = 22.07  # 28.02  for 2018 # 27.52 original
+birr_convert_date = 'Dec. 2016' 
+
+
+birr_to_dollar = function(x){return(x/birr_convert)}
+dollar_to_birr = function(x){return(x *birr_convert)}
+
+
+# price = 2000 # price of lime estimate replaced by spatial estimate below
+# lime_price_dollars = round(price/birr_convert)
+fertilizer_P_kg= 11.5 #00 # mean(1382,1413,1397,1220) /100   # 1500 set by james   # 11.5, 12.4, 13.2, was using 15
+tons_lime_ha = 3
+# total_lime_cost = price * tons_lime_ha not used any more see below
+
+# discounting parameters
+discount_rate = 0.08
+pv_years = 5
+inflation = 0.134
+
+# Calculate field requirements for lim based on ph and SOC (set by james)  # THIS DOES NOT WORK! 
+# field_lime_req = function(ph, soc){
+#   return( (28.7 - 4.8*ph + 0.17*soc)/1.6)
+# }
+ 
+# update for spatial data for lime prices
+regions = read_sf('../Data/AdminBoundaries/ETH_adm1.shp') %>% filter(NAME_1 %in% 
+                                                                      c("Addis Ababa","Amhara","Oromia", 
+                                                                      "Southern Nations, Nationalities and Peoples", "Tigray"))
+regions = as_Spatial(st_transform(regions,'+proj=laea +lat_0=5 +lon_0=20 +x_0=0 +y_0=0 +datum=WGS84 +units=m +no_defs'))
+lime_price_raster =  raster::mask(raster('../Data/prices/limecost_mkt.tif'), regions)
+price = cellStats(lime_price_raster, "mean")  # average is 1681
+lime_price_dollars = round(price/birr_convert)
+
+# changing GNI to one year average agri income in 2016
+GNI_2016_ETB =  8176 #pv(pmt=8176,r =discount_rate,n=pv_years)#,inf = inflation)  #  dollar_to_birr(GNI_2016)
+GNI_2016 =   birr_to_dollar(GNI_2016_ETB)      #670 *0.91  # @wbGNI  0.91 converts to 2016 dollars
+
+
+# update with spatial lime requirements 
+lime_mt_EA = read.csv('../Data/lime_estimates/LIME_EA_RECCOMEND.csv') %>% select(eacode,ph,soc, lime_to_6_5)
+tons_lime_ha_model = lm(lime_to_6_5~poly(ph,2), data = lime_mt_EA[lime_mt_EA$ph <6.5,])
+total_lime_cost = price * predict(tons_lime_ha_model,data_frame(ph=5.5))
+
+# simplified 
+model <- lm(lime_to_6_5~ph, data=lime_mt_EA[lime_mt_EA$ph <6.5,])
+tons_lime_ha_fn = function(ph){model$coefficients[1] + model$coefficients[2]  *ph}  # estimated as linear regresison across all eas given actual soc
+
+# convert qq/ha to ton/ha
+qq2ton = function(x){return(x/10)}
+yield_units = 'mt/ha'
+# should predictions assume fertilizer use to be zero or if False use actual fertilizer use as baseline
+fix_fert_at_0 =T
+```
+
+
+
+<!-- \begin{abstract} -->
+
+```{r include=FALSE, cache=F}
+# load results from conclusion to insert into abstract
+h_acidic_oph = readRDS('./Images/h_acidic_oph.rds')
+ph_oph = readRDS('./Images/PH_dataframe.rds')
+mean_EA_area = readRDS('./Images/mean_EA_area.rds')
+hacid_lime_cost_savings = readRDS('./Images/hacid_lime_cost_savings.rds')
+```
+
+ 
+
+# Abstract {-}
+<!-- Acid soils are a major constraint to agricultural productivity in many parts of sub-Saharan Africa, including Ethiopia. Restoring soil pH to optimal ranges for agriculture can have a significant impact on yields, particularly for acid intolerant crops like wheat and barley. The application of agricultural lime is the standard corrective, although the large application requirements, lack of farmer awareness, and weak or non-existent lime supply chains make this a complex problem to address at scale. Leveraging spatial variability and panel data, we examine the impact of soil pH and farm management on crop yields for wheat and barley at the local (sub-kebele) level. Our estimates find the impact of moving pH from 5.5 to 6.5, modeled as a lime soil remediation strategy, increases yields by `r round(ph_oph[1,3],0)`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. In addition, at lower pH levels our models indicate that commonly used nitrogen-based fertilizers are less cost-effective. For wheat in highly acidic soils, we find that fertilizers cost over `r paste(english(round(min(h_acidic_oph$PV.Fert.needed.match.6.5)/total_lime_cost,0)*-1))` times as much as a single application of lime over a `r paste(english(pv_years))`-year period. The cost savings of the use of lime reaches as high as `r round(hacid_lime_cost_savings$wheat*100)`% of one-year agricultural income for wheat, spread over a five-year period - with barley these savings are lower but still substantial at `r round(hacid_lime_cost_savings$barley*100)`%. We find the greatest benefits of applying lime are located in northern SNNP and western areas of Amhara and Oromia, largely matching the patterns to highly acidic soils as well as proximity to lime crushing facilities. Further, increased fertilizer application, used to offset the decline in productivity caused by acidification can accelerate lower pH levels and further aggravate the problem. In general, we advocate for an integrated soil fertility management strategy that applies appropriate levels of fertilizer on pH balanced soil. If properly managed, Ethiopia’s acid soil reclamation could become a more modest version of Brazil’s successful “Cerrado miracle” and serve as an example for the African continent. -->
+
+Acid soils are a major constraint to agricultural productivity in many parts of sub-Saharan Africa, including Ethiopia. Restoring soil pH to optimal ranges for agriculture can have a significant impact on yields, particularly for acid intolerant crops like wheat and barley. The application of agricultural lime is the standard corrective, although the large application requirements, lack of farmer awareness, and weak or non-existent lime supply chains make this a complex problem to address at scale. Leveraging spatial variability and panel data, we examine the impact of soil pH and farm management on crop yields for wheat and barley at the local level. Our estimates find the impact of moving pH from 5.5 to 6.5, modeled as a lime soil remediation strategy, increases yields by `r round(ph_oph[1,3],0)`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. In addition, at lower pH levels our models indicate that commonly used nitrogen-based fertilizers are less cost-effective. For wheat in highly acidic soils, we find that fertilizers cost over `r paste(english(round(min(h_acidic_oph$PV.Fert.needed.match.6.5)/total_lime_cost,0)*-1))` times as much as a single application of lime over a `r paste(english(pv_years))`-year period. The cost savings of the use of lime reaches as high as `r round(hacid_lime_cost_savings$wheat*100)`% of one-year agricultural income for wheat - with barley these savings are lower but still substantial at `r round(hacid_lime_cost_savings$barley*100)`%. In general, we advocate for an integrated soil fertility management strategy that applies appropriate levels of fertilizer on pH balanced soil. If successful, Ethiopia’s acid soil reclamation could become a modest version of Brazil’s successful “Cerrado miracle” and serve as an example for Africa.
+
+
+\newpage
+\doublespacing
+
+
+
+  
+# Introduction 
+Over decades of intensive utilization, small-scale farmers in Africa have removed large quantities of nutrients from their soils without sufficient inputs to replenish them [@drechsel2001population; @tully2015state]. Even though Ethiopia holds a substantial proportion of East Africa’s best croplands, the natural characteristics, intensive use of fertilizers on many of Ethiopia’s lands have led to extensive soil acidification and abandonment. This, coupled with the loss of topsoil, creates a challenging environment for the country to increase staple crop yields and food supply. While there exist some empirical assessments of the extent of soil acidity in Ethiopia, national estimates of impacts on yield gaps have not been carried out [@gurmessa2020soil], much less economic returns to addressing soil acidity through liming or other means. In this paper, we model the effects of soil acidification on wheat, and barley production on data between 2010 and 2016[^dates]. In particular, we explore the extent to which – and where – farmers would benefit from the application of lime to increase yields in comparison to yield gains attainable through nitrogen (N) fertilizers. 
+
+Soil acidification is a major cause of declining soil fertility in many parts of the humid sub-tropics, particularly in tropical Oxisols and Urtisols soils. Soils become acidic when basic elements such as calcium, magnesium, sodium and potassium held by soil colloids are replaced by hydrogen ions. This removal of bases can occur through natural processes, such as leaching caused by rainfall, or anthropogenic processes, such as intensive use of ammonium-based fertilizers and continuous cropping without organic inputs [@tully2015state; @McCauley2017montana]. The impact of N-based fertilizers is case dependent but can increase acidity if some N is lost to leaching [@McCauley2017montana]. One research group suggests that for every 1 kg of urea applied, nearly 1.8 kg of calcium carbonate is required to neutralize the treated soil [@mosaic]. Moreover, anthropogenically induced acidification is likely a major contributing factor to farmland abandonment in Ethiopia’s more marginal croplands [@takala2019soil].
+
+Acidification has a number of direct and indirect effects on plant health and development. Correcting soil acidity through the use of lime can serve as a foundation of a good soil fertility program. Maintaining proper soil pH has a variety of primary and secondary benefits including critically, increasing yields and the stimulation of microbial activity. In some experimental wheat plots, lime application can increase root length density by >100% and yields by up to 200% [@CAIRES200857]. Most varieties of wheat and barley grow best in soils with a pH ranging from 6 to 7, with 6.5 often mentioned as the target level [@vitosh_wheat; @ketterings2006lime; @ristow2010lime].
+
+[^dates]: In 2017, the Central Statistics Agency employed a significantly different research design for collecting AgSS data. To maintain the integrity of the panel data set, data beyond 2016 were not used. This also aligns with the EthioSIS soil data collection period.
+
+
+Areas of high acidity are located throughout the western highlands, with previous studies having identified areas of high acidity in the western and central highlands of Oromia and Amhara [@deressa2007inventory; @chimdi2012effects; @amede2019managing], and highland areas of SNNP [@amede2001reversing]. Previous studies have estimated that 40% of Ethiopia’s arable lands are acidic [@deressa2007inventory]. More recent assessments have indicated that soil acidity is expanding in scope and magnitude in Ethiopia, seriously affecting crop production [@lulu2020soil]. For example, in some barley, wheat and fava bean growing areas of central and southern Ethiopian highlands, farmers have shifted to producing oats that are more tolerant to soil acidity [@haile2009mitigation; @agegnehu2019soil]. Many farmers practice a barley–fallow–oats rotation system to reduce the negative effects of soil acidity and improve soil fertility [@regassa2011potentials]. However, this rotation system is not sustainable [@alemu2017effect], and addressing soil acidity with lime seems critical for longer term sustainability.
+
+<!-- There are several important variables to consider when analyzing lime application and acid soil amelioration and most research in Ethiopia reflects varying methodologies and reporting of variables.  More specifically, the movement and effectiveness of lime varies according to the timing and rate of liming, quality of liming material, depth of lime application, the status of soil fertility, soil type, surface soil pH, crop species and varieties, crop management practices as well as weather conditions [@fageria2008role;@conyers2003amelioration;@ernani2004chemical; @caires2005surface]. All of these factors can influence productivity responses to lime, which makes comprehensive statements about productivity responses to lime somewhat challenging.  However,  -->
+
+<!-- Although the science is complex, some basic tenets seem largely accepted by most researchers in the field; including that the application of lime in Ethiopia has significantly positive impacts on crop production and crop productivity. -->
+
+Lime is often referred to as the foundation or "workhorse" in acid soils [@fageria2008role], and a multitude of researchers have shown the effect of lime on soil pH. Studies also indicate that joint application of lime and fertilizer (components of an integrated soil fertility management strategy) have significant synergistic effects on grain yields. Caires et al. [-@CAIRES200857] evaluated the effects of wheat yield and root growth, and found that wheat yield was significantly increased by lime combined with fertilizer. These treatments included two lime liming treatments (3 mt/ha  and 6 mt/ha seven years apart) with 80 kg/ ha of N and 33 kg/ ha of K  applied annually. Compared with the no lime control, the initial liming  increased wheat grain yield by 170% and the second treatment by 210% in the same plots seven years later. Research indicates that lime applications have multi-year impacts with conservative time impacts of between 5 to 7 years. However, a lime application can extend to as much as a 10 to 12 years from a single lime application, implying the impacts of lime application compound over several years [@malhi1995longevity;@lukin2003optimal;@coventry1997longevity]. 
+
+<!-- For example, Buni [-@buni2014effects] determined that soil pH increased significantly from 5.03 in the plots without lime to 6.72 at the lime rate of 3.75t/ha in the southern part of Ethiopia.  Liming also considerably affects soil nutrient availability (P, Ca, Mg) and decreases Mn and Fe [@agegnehu2006yield; @hati2008impact].   -->
+<!-- Agegnehu et al. [-@agegnehu2006yield] indicated that soil pH consistently increased from 4.37 to 5.91 as the liming rate increased. Hati et al. [-@hati2008impact], also evaluated that, the application of lime with Nitrogen, Phosphorus and Potassium (NPK) increases the pH of the surface, 0-15cm depth, from 5.3 to 5.9 and for 15-30 cm depth, increases the pH from 5.3 to 6.1. -->
+
+<!-- According to field experiment results from 2009 to 2013 in western Ethiopia, the combined application of 1.65 lime mt/ha and 30 P kg/ha resulted in 133% higher grain yields of barley than the control (without P and lime) [@desalegn2017effect]. While the highest yield of barley was obtained in the third year after the application of lime [@buni2014effects], researchers have noted that the fineness of the applied lime is positively correlated to the speed in which it neutralizes acidity [@kett2006lime]\\[^mesh]. Results suggested by Hati et al. [@hati2008impact] indicated that, continuous use of nitrogen, phosphorus and potassium (NPK) + lime would sustain yield in a soybean–wheat system without deteriorating soil quality. Therefore, soil test-based lime and fertilizer applications can be used for the sustainable production of malt barley on acidic soils in Ethiopia.   -->
+
+Field studies inside of Ethiopia and other developing nations have found consistent benefits of lime application, including the expected reduction of acidity [@buni2014effects; @agegnehu2006yield], a 90-130%+ increase in yields on treatment plots [@desalegn2017effect; @buni2014effects], increased nutrient availability [@agegnehu2006yield; @hati2008impact], and indications of sustainable yields for soy-wheat rotation, and malt barley production in acidic soils using lime in conjunction with N, P and K (NPK) [@hati2008impact]. Overall, while liming application amounts, crop type, and productivity responses vary widely, overwhelming evidence suggests significant productivity responses with lime applications in both international and Ethiopian studies.  It is important to note that most of these studies are done at the test plot level and, to the best of our knowledge, no larger pilot programs have evaluated the effects of lime application of representative farmers in Ethiopia, or Africa more generally.
+
+<!-- [^mesh]: Assuming relevant amounts of moisture, 100 mesh fineness lime is estimated to raise pH significantly in just a couple of months.  Lime with lower mesh ratings will begin to affect pH over a longer time period [@ristow2010lime]. -->
+
+<!-- Liming materials contain calcium and/or magnesium in forms, which when dissolved, will neutralize soil acidity. Not all materials containing calcium and magnesium are capable of reducing soil acidity, and careful attention should be placed on monitoring the effectiveness of these materials. Calcium hydroxide is a strong base and reacts with $CO_2$ and $H_20$ in the soil, yielding bicarbonate ($HC0_3^-$) and hydroxide ($OH^-$). These take $H^+$ and Al (acid-forming cations) out of solution, and thereby neutralize soil acidity [@McCauley2017montana]. It is however important to differentiate between the neutralizing effects of different types of lime (calcium carbonite vs dolomitic etc) and quality, however these discussions are outside the scope of this paper  -->
+
+In this article we evaluate the impact of acidic soils on the productivity of wheat and barley for Ethiopia’s major growing regions because they are among the most important cereal crops grown in highland areas, and most affected by acid soils. We use spatial agricultural data and soil pH to evaluate soil acidity’s impact on wheat and barley yields, while controlling for other factors.  Specifically, we evaluate the quantity and cost of the annual fertilizer applications required to obtain the same productivity gains from a single lime application over a `r paste(english(pv_years))`-year period. As an important caveat, it is critical to acknowledge that our analysis uses secondary data projected over the sub-kebele area and is not at the individual plot level. While this level of aggregation depicts general impacts of pH and crop productivity, we believe the potential impacts of lime and pH balanced soil on crop productivity would be greater at the plot level. The marginal effects of lime reflect not the application of lime as a corrective, because it is generally unavailable to farmers, but reflect the variability in soil pH and their resultant differences in reported crop yields, an imperfect yet meaningful proxy.
+
+<!-- We use this analysis to construct a cost-benefit analysis comparing the use of chemical fertilizers and lime to address the loss in yields found in acidic and highly acidic soils (pH of < 6.5 and <5.5 respectively). -->  
+
+[^kebele]:A kebele is the lowest administrative area in Ethiopia. The sub-kebele is designed to capture approximately 200 households within the boundaries of a kebele. Therefore, the spatial area is based on the relative population density. On average, there are approximately five sub-kebeles per kebele with a typical size of  `r paste(round(mean_EA_area*0.0000010))` $km^2$ per sampled area. 
+
+ 
+```{r read in data & merge, message=FALSE, warning=FALSE, cache=T, include=FALSE}
+EA_data = read.dta13('../Data/AGSS/Mike_transfer_raw_data_5_28_19.dta')   
+EA_satellite = read.csv('../Data/Google_Earth_Engine/CWD_PPT_PDSI_by_EA.csv') #%>% select(-c('.geo'))
+EA_satellite$EACODE = EA_satellite$EA_cd_m
+
+# select relevant data, convert to long
+EA_satellite = EA_satellite %>% select(matches("cwd|aet|pdsi|EACODE")) %>%   
+                  gather(key='Year',value = 'Value',-EACODE) %>% arrange(EACODE) %>%
+                  separate(Year, c('Variable',"Year"),sep='\\.')  %>% spread(Variable, Value) %>% 
+                  mutate(Year = as.numeric(Year))
+
+EA_join = inner_join(EA_data,EA_satellite)
+```
+
+
+```{r windsorize and clean, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE,  cache=T}
+
+# code region names 
+level = c('1'='Tigray',"3"='Amhara',"2"='Afar',"4"='Oromia',"5"='Somali',"6"='Benishangul',"7"='SNNP')
+EA_join$REGION_NAME =  recode((EA_join$REGIONCODE), !!!level )
+
+#select only major growing regions
+EA_join = EA_join %>% filter(REGIONCODE %in% c(1,3,4,7))
+
+
+batch_prep = function(crop_name){
+  # OPH windsor
+  in_varname = paste(crop_name,'OPH',sep='')
+  out_varname = paste(crop_name,'_OPH','_w', sep="")
+  EA_join = EA_join %>% mutate(!!out_varname := winsorize_x(EA_join[[in_varname]]))
+  # chem per area windsor
+  in_varname_fert = paste(crop_name,'FERT_CHEMICAL_AMT',sep='')
+  in_varname_area = paste(crop_name,'AREA',sep='')
+  out_varname = paste(crop_name,'_FERT_PER_AREA','_w', sep="")
+  EA_join = EA_join %>% mutate(!!out_varname := winsorize_x( EA_join[[in_varname_fert]]/EA_join[[in_varname_area]]))  
+  # improved seeds  p
+  in_varname_seed_area = paste(crop_name,'SEED1AREA',sep='')
+  in_varname_area = paste(crop_name,'AREA',sep='')
+  out_varname = paste(crop_name,'_IMSEED','_p', sep="")
+  EA_join = EA_join %>% mutate(!!out_varname := EA_join[[in_varname_seed_area]]/EA_join[[in_varname_area]])
+  # extention p 
+  in_varname_seed_area = paste(crop_name,'EXTAREA',sep='')
+  in_varname_area = paste(crop_name,'AREA',sep='')
+  out_varname = paste(crop_name,'_EXT_AREA','_p', sep="")
+  EA_join = EA_join %>% mutate(!!out_varname := EA_join[[in_varname_seed_area]]/EA_join[[in_varname_area]])
+  # irrigation p 
+  in_varname_seed_area = paste(crop_name,'IRRGAREA',sep='')
+  in_varname_area = paste(crop_name,'AREA',sep='')
+  out_varname = paste(crop_name,'_IRG_AREA','_p', sep="")
+  EA_join = EA_join %>% mutate(!!out_varname := EA_join[[in_varname_seed_area]]/EA_join[[in_varname_area]])
+  # damage area p 
+  in_varname_seed_area = paste(crop_name,'DAMAGEAREA',sep='')
+  in_varname_area = paste(crop_name,'AREA',sep='')
+  out_varname = paste(crop_name,'_DAMAGE_AREA','_p', sep="")
+  EA_join = EA_join %>% mutate(!!out_varname := EA_join[[in_varname_seed_area]]/EA_join[[in_varname_area]])
+    
+  return(EA_join)
+}
+
+
+# windsorize and clean
+EA_join = batch_prep(crop_name='MAIZE')
+EA_join = batch_prep(crop_name='BARLEY')
+
+EA_join = batch_prep(crop_name='WHEAT')
+
+EA_join$cwd_w = winsorize_x((EA_join$cwd_early+EA_join$cwd_late)/2)
+EA_join$cwd = (EA_join$cwd_early+EA_join$cwd_late)/2 
+EA_join$pdsi = (EA_join$pdsi_early+EA_join$pdsi_late)/2 
+EA_join$dist_pp50k = EA_join$dist_pp50k /1000
+
+
+# 
+# # IMPORTANT INCLUDE OR NOT
+# # drop weird pH values
+# EA_join = EA_join[EA_join$PH>5.1,]
+# 
+
+# avoid missing data for year 7
+EA_join$elevation = EA_join$elevation7
+EA_join$dist_pp50k = EA_join$dist_pp50k7
+EA_join$roadden = EA_join$roadden7
+EA_join$Area_Ha = EA_join$Area_Ha7
+EA_join = EA_join %>% select(-c('elevation7','dist_pp50k7','roadden7','Area_Ha7','mean_elevation','WHEATFERT_CHEMICAL_AMT'))
+
+# pH Levels 
+EA_join$AcidLevel = NA
+EA_join$AcidLevel[EA_join$PH <= 5.5] = "Strong_Acid"
+EA_join$AcidLevel[EA_join$PH > 5.5  &  EA_join$PH <= 6.55] = "Moderate_Acid"
+EA_join$AcidLevel[EA_join$PH > 6.55  &  EA_join$PH <= 7.35] = "Neutral"
+EA_join$AcidLevel[EA_join$PH > 7.35  &  EA_join$PH <= 8.45] = "Moderate_Alkaline"
+EA_join$AcidLevel[EA_join$PH > 8.45] = "Strong_Alkaline"
+EA_join$AcidLevel <- factor(EA_join$AcidLevel, levels = c("Strong_Acid", "Moderate_Acid", "Neutral", "Moderate_Alkaline", "Strong_Alkaline"))
+
+# write to csv for james
+write.csv(EA_join, '../Data/EA_join_james_share.csv')
+#write.csv(EA_join, '../../Ethiopia_Soil_Acidity_2019_Book/Data/EA_join_james_share.csv')
+
+```
+
+
+# Materials and Methods
+In this analysis, we leverage spatial variability and panel data to model the yield responses of wheat and barley to differences in topsoil pH, using recent large-scale farm survey data augmented with remotely sensed variables and other geospatial controls. Our basic strategy is to use empirical insights about these crop-specific yield-pH relationships, in concert with reasoned assumptions about soil pH responses to lime, as the agronomic basis of a location-specific cost comparison of two alternative interventions, lime and fertilizer. Specifically, this analysis provides a comparison of the present value or "current cost" of lime to that of fertilizer required to provide the same yield gain over a `r paste(english(pv_years))` year period[^pv]. Because these factors are spatially explicit, this modeling framework serves us well as both an ex ante evaluation tool as well as a means of targeting lime delivery efforts to those areas where it will be most economically beneficial.
+
+[^pv]: Present value is the current value of a future flow of money discounted to take into account for compounding at some specified rate of return (discount rate). In this case  it is the “current cost” of future payments for lime or fertilizer, or the amount you would need to hold aside today to make these purchases.
+
+## Data
+
+### Agricultural Sample Survey Data (2010-2016)
+Our analysis uses agricultural production data from the Central Statistical Agency’s (CSA) Agricultural Sample Survey (AgSS). The AgSS is collected annually [@AGSS].  For this study we utilize measures of crop yields in metric tons per hectare (`r paste(yield_units)`), the percentage of plots applied with improved seeds, the percentage of plots that have access to irrigation, the percentage of plots actively receiving extension agent support, the intensity of chemical fertilizer use (kg/ha), and the percentage crops reported as damaged by the farmer. Damages include a number of factors including weather-related, pests, etc. All AgSS data is reported at the sub-kebele level, which is the unit of analysis for the remainder of this paper. For more details about the AgSS refer to Appendix A.
+
+### Soil properties 
+Data on soil properties were collected from the Ethiopian Soil Information System (EthioSIS). EthioSIS is charged with gathering soil samples from all major growing regions to help provide detailed information on soil fertility, and to provide fertilizer recommendations [@EthioSIS]. For this study we access sub-kebele estimates of EthioSIS measures like soil pH, as well as measures of cation exchange capacity[^CEC], soil organic content, and sand content at approximately 15cm depth. We focus on two key categories of soil acidity, moderately acidic soils (5.5 $<$ pH $\le$ 6) and highly acidic soils ($\le$ 5.5). Soil properties are aggregated to the sub-kebele level. For more details on EthioSIS see Appendix A. Soil pH levels across the county can be seen below in Figure `r paste(Figure_number)`.
+
+[^CEC]:Cation exchange capacity is a measure of a soils ability to hold and supply nutrients to plants and is affected by soil pH.
+
+```{r Plot soil acidity, eval=T, message=FALSE, warning=FALSE, cache=TRUE, include=FALSE, paged.print=FALSE,fig.width=6}
+country = read_sf('../Data/AdminBoundaries/ETH_adm1.shp')
+country = as_Spatial(st_transform(country,32637))
+proj4string(country) = '+init=epsg:32637 +proj=utm +zone=37 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0'
+
+all_EAs = read_sf( '../Data/EA Shapefile/AGSS_EnumerationAreas_WGS_codes.geojson' )
+all_EAs$EACODE = all_EAs$EA_code_merge
+saveRDS(mean(st_area(all_EAs)),file = './Images/mean_EA_area.rds')
+
+# add spatial lime prices already run and saved
+# EA_lime_price_sp = raster::extract(x = lime_price_raster, 
+#                               y = as(all_EAs %>% select(EACODE,geometry), "Spatial"),
+#                               na.rm=T,
+#                               fun=mean, 
+#                               df=F)
+# write.csv(EA_lime_price_sp,file="../Data/R_images/EA_lime_price_sp.csv")
+EA_lime_price_sp=read.csv("../Data/R_images/EA_lime_price_sp.csv")
+all_EAs$EA_lime_price_sp = EA_lime_price_sp$V1
+
+
+all_EAs_PH = inner_join(all_EAs %>% select(c(EACODE,EA_lime_price_sp,geometry,x_coord,y_coord)), EA_data %>% filter(Year == 2010 ) %>% select(EACODE,PH) )
+
+sp_all_EAs_PH = as.data.frame(all_EAs_PH %>% select(-c(geometry)))
+coordinates(sp_all_EAs_PH)<- ~x_coord+y_coord
+proj4string(sp_all_EAs_PH)<-  CRS("+init=epsg:32637")
+
+# krig already run and saved
+# ptsreg = spsample((country), 4000, type = "regular")   # Define the ouput grid - 4000 points in polygons extent
+# Krig = autoKrige(PH~1,sp_all_EAs_PH, new_data = ptsreg)$krige_output
+# interp_data  = as.data.frame(Krig)
+# save(interp_data,file='../Data/R_images/interp_data.rda')
+```
+
+*Figure* `r paste(Figure_number)`*: Ethiopia's soil pH balance*`r  Figure_number =Figure_number+1 `
+
+```{r ethioSIS ph map, eval=T, fig.width=5, message=FALSE, warning=FALSE, include=T, cache=T}
+library(readstata13)
+
+ethsis = read.dta13('../Data/EthioSIS/EthioSIS_EA_Cleaned_April_4_2019.dta')
+ethsis = ethsis %>% filter(!is.na(x_coord) & !is.na(y_coord))
+ethsis_pnt = st_as_sf(x = ethsis, 
+                        coords = c("x_coord", "y_coord"),
+                        crs = "+proj=utm +zone=37 +datum=WGS84 +units=m +no_defs")
+
+b=ggplot() +    geom_sf(data=st_as_sf(country),aes(),fill='grey90')+
+  geom_sf(data=ethsis_pnt%>%sample_frac(size=0.7)%>%filter(PH>5),aes(color=PH))+
+  scale_colour_gradient2(low='darkred',mid='white',high='darkgreen',midpoint = 6.5)+
+  geom_sf(data=st_as_sf(country),aes(),color='white',size=1,fill=NA)+
+  coord_sf(xlim=c(-90657.53,966145.),ylim=c(418602.3,1607672.7)) +
+  theme(axis.text = element_blank(),
+        axis.ticks = element_blank())
+ggsave(b, filename = paste0("Images/Figure_",Figure_number-1,"_ethiosis_ph.png"),width = 5, bg = '#ffffff')
+
+b
+```
+
+### Remotely Sensed Variables 
+This study controls for the impacts of drought and elevation with remotely sensed data.  We obtain hydrological variables from the University of Idaho’s TerraClimate data and utilize a measure of drought called the Palmer Drought Severity Index (PDSI) [@abatzoglou2018terraclimate]. PDSI is an effective measure of longer-term drought. For more details on TerraClimate see Appendix A. Elevation data is obtained from NASA’s Shuttle Radar Topography Mission (SRTM) at 90 meter resolution [@van2001shuttle].
+
+### Other Variables
+Two dummy variables were used to capture policy impacted areas that potentially receive external support.  These two programs include the Agricultural Growth Program (AGP) for high potential growth areas, and those designated for social protection programs using the Poverty Safety Net Program (PSNP).  The AGP intervention is designed to increase productivity and marketed output within high potential agricultural areas. The 83 intervention woredas were obtained from the Ethiopia Strategy and Support Program II’s baseline report [@berhane2013agri].  Ethiopia’s PSNP is an internationally recognized safety net program that provides a variety of social programs to assist poorer households.  There are approximately 200 woredas designated as PSNP woredas and the program was initiated in 2005 [@gilligan2007eth]. We also control for the major agroecological zones of Ethiopia with data from Water Land Resource Center [@WLRC] Additionally, access to markets is controlled for using Euclidean distance to the nearest populated town with more than 50k people [@ngaPP].
+
+
+## Soil pH responses to limestone applications
+In order to estimate lime application rates needed to raise pH levels to desired levels, there are at least seven items to consider in the Ethiopian context [@ristow2010lime], shown in equation `r paste(Formula_number)`:
+
+`r limeform= Formula_number; Formula_number=Formula_number+1`
+
+\begin{align}
+L = (CEC)\left(\frac{BS_{t}-BS_{o}}{2(1-BS_{o})}\right)\left(\frac{TD}{6}\right)(CCE)(F)
+\end{align}
+
+Where *L* is the lime required (mt/ac) can be determined by: cation exchange capacity (CEC), $BS_{t}$ and $BS_{o}$ are the target and original base saturation rates at the current and at the desired pH, respectively, tillage depth (TD) in inches, calcium carbonate equivalent (CCE) of the chosen lime material, relative fineness of the liming materials (F), and adapting estimates to Ethiopian conditions.
+
+For operational purposes, it is important to point out that pH measures only a portion of a soil’s acidity and should not be exclusively used to determine lime requirements. To better measure needed lime requirements the soils “buffer capacity” is projected as a function of sub-kebele values of CEC[^cation] as well as base saturation estimates values determined by a pH-base saturation model [@ketterings2006lime].  Tillage depth (TD) is assumed to be about 15 cm (5.9 in) for traditional oxen plowing in Ethiopia [@abidela2019deep]. Calcium carbonite equivalent is assumed to be 100% (eg. Calcitic limestone) with 100% fineness (F) for quick absorption into the soil. Finally, we index the equation to approximately 3 mt/ha for a 1 unit increase in pH (5.5 to 6.5) to conform with Ethiopian soil scientists’ expert opinion on general national liming rate requirements. Sub-kebele estimates of lime required to obtain a pH of 6.5 shown in Figure A1 in the appendix.
+
+[^cation]: Typically, CEC is used for pH measurements above 6.0 and exchange acidity (EA) is used for lower pH levels.  Because of EthioSIS data limitations, we use CEC for all pH levels.
+[^soilacid]: There are three different forms of soil acidity: active acidity (which is measured by pH), salt-replaceable acidity and residual acidity.  Since pH measures only active acidity, deriving lime estimates based only on this information alone would be signiicantly less accurate.
+
+[^cec]: While CEC is generally used at higher levels acidic pH levels (typically pH 6.1 or greater) we project it to all levels of pH measurements  because of Ethiosis data limitations.
+
+
+## Estimating yield responses to pH changes
+
+### Exploring Bivariate Relationships
+Bivariate plots are used to help frame the discussion of the relationship between yields and fertilizer or lime applications. We use sub-kebele level observations from the AgSS, pooling data from the 2010-2016 growing seasons. Because there are thousands of observations, they are summarized with Loess smothers. In each figure the colored lines are the result of Loess smothers tracing the non-linear relationship between the observations of the x and y factors, and the 95% confidence intervals are in gray. These plots, while informative, are simplistic as the impacts of any particular variable should be evaluated in a multivariate context. 
+
+### Multivariate Estimation Strategy
+In order to examine the marginal effect of grain output per hectare to changes in soil acidity, we control for the effects of other variables such as water availability, soil properties, elevation, and management differences. To do this a fixed effects regression is used on all sub-kebeles for 2010-2016 with year and agricultural zone fixed effects. This regression allows us to examine how a one unit increase in fertilizer or pH relates to wheat yields while controlling for other potential determinants of productivity.
+ 
+To better address the highly non-linear nature of many of these relationships, polynomials are applied to all independent variables. The order of the polynomial is established using recursive nested ANOVAs to test the hypothesis that a model $M_1$ is sufficient to explain the data against the hypothesis that a more complex model $M_2$ is required. In our yield response model, we control for a variety of independent variables. These are defined below:
+
+\newpage
+
+*Table* `r paste(Table_number)`*: Variable Definitions and Sources*`r variables =Table_number; Table_number =Table_number+1 `
+
+```{r variable definitions,  message=FALSE, warning=FALSE, include=T}
+
+variables = data.frame(Name = c('PH','CEC', 
+                                'SOC','SND',
+                                #'G_mx','PPT_A_mn',
+                                'Elevation','PDSI',
+                                'Yield',
+                                'Ext.Area','Imp.Seed','Irg.Area',
+                                'Damage','Fert',
+                                'DistPP','PSNP','AGP','Year','Agri.Eco.'
+                                ),
+                       
+                       Definition=c('Mean pH','Cation exchange capacity', 
+                                    'Soil organic content (%)','Sand content(%)',
+                                    #'Maximum observed greenness (NDVI)',
+                                    #'Mean annual precipitation (mm)',
+                                    'Elevation (m)','Palmer drought severity index ([-5,5])',
+                                    'Observed crop yield in (mt/ha)',
+                                    'Area advised by extension agents (%)',
+                                    'Area applied with improved seeds (%)',
+                                    'Area irrigated (%)',
+                                    'Area reported as damaged by farmer (%)', 
+                                    'Chemical fertilizer intensity (kg/ha)',
+                                    'Distance to populated place','PSNP dummy variable','AGP dummy variable','Year of harvest','Agro-Ecological Area'
+                                    ),
+                       
+                       Source=c('EthioSIS','EthioSIS', 
+                                    'EthioSIS','EthioSIS',
+                                    'Remotely Sensed', 'Remotely Sensed',#'Remotely Sensed','Remotely Sensed',
+                                    'AgSS',  'AgSS', 'AgSS','AgSS', 'AgSS',  'AgSS',
+                                    'Other','Other','Other','Other','Other'
+                                    ))
+
+flextable(variables) %>%  merge_v( j = 3 ) %>% border_inner_h(border = std_border ,part='body') %>% autofit() %>% fix_border_issues()
+
+```
+in order to test the sensitivity of these regressions a number of alternative specifications are presented in Appendix B. 
+
+
+## Spatially varying input prices 
+A key part of our approach is recognizing that, like agronomic response, the economic returns to liming differ by location. This is particularly salient in a country like Ethiopia, where complex terrain and market access have important implications for marketed prices and, consequently, the economic attractiveness of productive investments [@minten2013last]. In our analysis, we address this through spatially explicit estimates of agricultural lime application.
+
+Because the market for agricultural lime has not yet been developed in Ethiopia, market prices are not available. We therefore estimate the distribution costs of delivered lime to cooperative unions or other private input distributors on the basis of current crusher locations at Butajira, Guder and Dejen. One metric ton (mt) of lime at each crusher location was assumed to cost 750 ETB. From each crusher location, the cumulative travel time from all locations in the country was calculated on the basis of a spatial cost-distance model, which factored in road network data [@haklay2008osm], discounted by terrain steepness. This price includes transportation costs from lime crushing facilities to distribution centers, but does not include either the "last-mile" transport or application costs. We assume a fixed loading cost of 100 ETB/mt and variable transport costs of 60 ETB/mt/hr. Resulting estimates of delivered lime costs are shown in Figure A2 in the appendix, with representative lime cost estimates provided for major towns of interest listed in Table `r paste(Table_number)` below.
+
+
+
+ 
+*Table* `r paste(Table_number)`: Input Distributors Lime Cost Predictions for Different Locations`r variables =Table_number; Table_number =Table_number+1 `
+
+```{r transport example table,  message=FALSE, warning=FALSE, include=T}
+variables = read.csv('../Data/Lime_TransCost_examples.csv')
+names(variables)=c('City','Nearest Crusher', 'Travel Time\n(hr)','Distributors Costs\n(ETB/mt)')
+flextable(variables) %>%  merge_v( j = 3 ) %>% border_inner_h(border = std_border ,part='body') %>% autofit() 
+
+```
+<!-- Wholesale prices for barley and wheat were estimated on the basis of market prices compiled and reported by CSA for 2017/2018. A random forest prediction model was fit to predict the mean market prices reported for each market location, as a function of a number of geospatial covariates (Table `r paste(Table_number)`).  -->
+
+
+
+```{r spatial fertilizer example table,  message=FALSE, warning=FALSE, include=F}
+trans_data = read.csv('../Data/transport_data_description.csv')
+flextable(trans_data) %>%  merge_v( j = 3 ) %>% border_inner_h(border = std_border ,part='body') %>% autofit() 
+
+```
+<!-- Notes: Datasets and processing code available from https://osf.io/mds62/. -->
+
+<!-- **not sure we should use this section are we using spatial crop prices? should go in results anyways? ** -->
+<!-- **Predictions perform well, accounting for 94% and 93% of the observed spatial variation in barley and wheat prices, respectively.  Because the CSA only reports data on retail market prices, we assume that the wholesale buying prices available to farmers is equal to 60% of the local retail price. The resulting spatial price estimates are shown in the figure below.** -->
+
+<!-- **Figure 3: Predicted market prices of barley and wheat** -->
+
+## Cost Comparisons of Lime and Fertilizer Application 
+
+To understand differences between the cost of lime and fertilizer we need some normalized basis of comparison. To do this we estimate the marginal response in yields, corresponding to differences in pH and fertilizer for wheat and barley. We then estimate, for the average sub-kebele hectare, how much it would cost to reduce acidity from, for instance, a pH of 5.5 to 6.5 through the application of lime, and the yield response of this intervention measured in `r yield_units`. In contrast, we can also estimate the amount and cost of fertilizer required to obtain the same yield response (`r paste(yield_units)`) expected from that lime treatment and compare them. This comparison is presented throughout the paper as 'X Cost of Lime', and is the economic costs of fertilizer divided by the cost of lime - for some specified yield response - typically that of bringing the observed pH up to 6.5. 
+
+
+## Present Value of Future Lime and Fertilizer Expenditures
+To compare the costs of lime and fertilizer, it is critical to note that fertilizers require annual applications, while lime is conservatively assumed to be applied once every `r paste(english(pv_years))` years. Fertilizer applications therefore need to be thought of as a repeated annual cost over the `r paste(english(pv_years))` period, subject to the present value calculation.
+
+For present value calculations we assume that the annual costs of Urea and NPS fertilizer are `r prettyNum(fertilizer_P_kg, scientific=FALSE, big.mark=",")` ETB/kg or $`r birr_to_dollar(fertilizer_P_kg)`[^exrate], reflecting costs during our period of analysis. These costs are discounted across `r paste(english(pv_years))` years, at an annual discount rate of `r discount_rate*100`% and an inflation rate of `r inflation*100`%. These rates reflect savings interest rates and consumer price indices [@nbe; @wbCPI], note that the maximum bank deposit rates minus inflation results in a negative real rate of return and is indicative of a heavily regulated and repressive financial system.
+ 
+[^exrate]: A December `r paste(birr_convert_date)` Birr/$ exchange rate of `r paste(birr_convert)` to conform to the 2016 production data.
+
+ 
+# Results and Discussion
+
+## Bivariate Descriptive Analysis
+`r oph_ph =Figure_number`
+
+In this section we explore the bivariate relationship between soil pH and agricultural productivity as measured by wheat and barley yields (`r paste(yield_units)`). Figure `r oph_ph` shows yield plotted against pH.
+
+\newpage
+
+*Figure* `r paste(Figure_number)`*: Bivariate relationship between crops yields and soil pH*`r  Figure_number =Figure_number+1 `
+
+```{r plot wheat oph vs ph, echo=FALSE, fig.width=5, message=FALSE, warning=FALSE, cache=T, paged.print=FALSE}
+ 
+ph_oph_all = tidy(lm(PH~ MAIZE_OPH_w ,data=EA_join))
+ 
+ 
+# ggplot(data=EA_join,
+#       aes(x=PH,y=MAIZE_OPH_w))+geom_point(col='grey25')+geom_smooth(method='loess',size=2) + theme_minimal() +xlab('Mean pH') +ylab('MAIZEyield(qq/ha)')  
+
+# gather cropyieldand PH 
+wheat_ph_oph = EA_join %>% select(REGION_NAME,PH,WHEAT_OPH_w,WHEAT_FERT_PER_AREA_w,PSNP_Dum) %>% mutate(Crop ='Wheat')
+OPH_level = c(WHEAT_OPH_w= 'OPH',MAIZE_OPH_w='OPH',BARLEY_OPH_w='OPH',
+              WHEAT_FERT_PER_AREA_w='Fert',BARLEY_FERT_PER_AREA_w='Fert',MAIZE_FERT_PER_AREA_w='Fert')
+names(wheat_ph_oph) = recode(names(wheat_ph_oph), !!!OPH_level)
+
+barley_ph_oph = EA_join %>% select(REGION_NAME,PH,BARLEY_OPH_w,BARLEY_FERT_PER_AREA_w,PSNP_Dum) %>% mutate(Crop ='Barley')
+names(barley_ph_oph) = recode(names(barley_ph_oph), !!!OPH_level)
+
+maize_ph_oph = EA_join %>% select(REGION_NAME,PH,MAIZE_OPH_w,MAIZE_FERT_PER_AREA_w,PSNP_Dum) %>% mutate(Crop ='Maize')
+names(maize_ph_oph) = recode(names(maize_ph_oph), !!!OPH_level)
+
+ph_oph_fert = bind_rows(list(wheat_ph_oph,barley_ph_oph,maize_ph_oph))
+
+ph_oph_fert$Crop  = factor(ph_oph_fert$Crop, ordered = T, 
+                           levels = c("Wheat", "Barley", "Maize"))
+
+
+d = ggplot(data=ph_oph_fert %>% filter(Crop != 'Maize' ),aes(x=PH,y=qq2ton(OPH) ))+#geom_point(col='grey25',alpha=0.3)+
+      geom_smooth(aes(color=Crop),method='loess',size=2,se = T)+
+      scale_color_brewer(type='qual', palette = "Set2") +
+      facet_wrap(.~factor(Crop ),scales='fixed') + theme_minimal() + 
+      xlab('Mean pH') +ylab(paste0('Yields (',yield_units,')')) 
+ 
+ggsave(d, filename = paste0("Images/Figure_",Figure_number-1,"_yield_mn_ph.png"),width = 5, bg = '#ffffff')
+d
+```
+
+Consistent with literature, we see a concave response of yield to pH for wheat and barley, both peaking near 6.5. To see if wheat farmers are adapting to highly acidic soils by applying more fertilizer, we plot observations of intensity of fertilizer use (kg/ha) against soil pH for wheat in Figure `r paste(Figure_number)`.
+
+\newpage
+
+`r fert_ph_fig_num =Figure_number`
+*Figure* `r paste(Figure_number)`*: Estimated relationship between fertilizer use and soil pH for wheat*`r  Figure_number =Figure_number+1 `
+
+```{r plot wheat oph vs fertilizer utilization wheat, echo=FALSE, fig.width=5, message=FALSE, warning=FALSE, cache=T}
+
+ph_fert_lm_wheat = tidy(lm(Fert~PH*factor(REGION_NAME),
+                           data=ph_oph_fert[ph_oph_fert$Crop=='Wheat',]))
+
+e = ggplot(data=ph_oph_fert[ph_oph_fert$Crop=='Wheat',],
+            aes(x=PH,y=Fert,color=factor(REGION_NAME)))+
+    #geom_point(color='grey25',alpha=0.3)+
+    geom_smooth(method='loess',size=2,alpha=0.5,se = T)+ 
+    facet_wrap(.~REGION_NAME,scales='fixed',nrow = 2 ) + 
+    theme_minimal() + 
+    guides(color=guide_legend(override.aes=list(fill=NA),title = 'Region'))+
+    xlab('Mean pH') +
+    ylab('Fertilizer (kg/ha)')  +ggtitle('Wheat')+theme(plot.title = element_text(hjust = 0.5))
+
+ggsave(e, filename = paste0("Images/Figure_",Figure_number-1,"_fertilizer_mn_ph.png"),width = 5, bg = '#ffffff')
+
+e
+
+```
+ 
+Figure `r fert_ph_fig_num` depicts regional differences in fertilizer application and pH levels. Amhara's lower pH corresponds to significantly higher utilization of fertilizer in wheat (p < `r p_pretty_sci(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH",'p.value'])`), implying that for each one unit decrease in pH (more acidic) farmers apply an additional `r round(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH",'estimate'],1)*-1` Kg/ha of chemical fertilizers. In Tigray, there are a handful of sub-kebeles applying large amounts of fertilizer to highly acidic soils, and across the region fertilizer application decrease with pH (p < `r round(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH:factor(REGION_NAME)Tigray",'p.value'],2)`). Meanwhile, farmers in Oromia appear to target additional fertilizers to areas with ideal pH, and SNNP appears to significantly increase fertilizer applications in soils with higher alkalinity (p < `r p_pretty_sci(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH:factor(REGION_NAME)SNNP",'p.value'])`).
+
+
+This variety of regional responses to pH likely reflects local policy and extension approaches to address lower than expected yields. Across major growing regions for wheat, Figures `r Figure_number-1` and `r Figure_number` indicate that moderately acidic and neutral soils obtained the highest yields, and significant quantities of fertilizer were sometimes used to offset losses due to pH. Anecdotal evidence from a former Amhara official suggests that fertilizer was heavily emphasized over balancing soil pH to boost flagging yields. Although suggestive, the effectiveness of these mitigation strategies will depend on the relative costs of annual fertilizer applications, and the frequency of lime application. Given this finding, farmers utilizing greater than average amounts of fertilizer, especially urea, may now be suffering from “induced acidification” especially in Amhara and Tigray. Induced acidification occurs during the growth period when crops absorb basic elements such as Ca, Mg, and K to satisfy their nutritional requirements, and removing these lime-like nutrients [@agegnehu2019soil]. 
+
+
+
+<!-- Acid Nitisols (pH <5.5) occur widely in Ethiopian highland areas where rainfall and agricultural intensity have remained high [ @hurni2010land; @agegnehu2019soil]. In conclusion, across all regions for wheat, Figures `r fert_ph_fig_num-1` and `r fert_ph_fig_num` indicate that moderately acidic and neutral soils obtained the highest yields, and significant quantities of fertilizer were sometimes used to offset losses due to pH.  -->
+<!-- Alkaline soils also display significant reductions in yields. Although not the direct focus of this work, addressing alkalinity would have similar benefits to addressing acidity. -->
+
+
+```{r plot wheat oph vs fertilizer utilization table, include=F, results='asis', cache=T}
+
+# table of yields acidity and fertilizer
+fert_acid_md_wheat = EA_join %>% group_by(AcidLevel) %>% 
+  summarise(`Median Fert Utilization` = median(WHEAT_FERT_PER_AREA_w, na.rm = TRUE),
+            `Median Yields` = median(WHEAT_OPH_w, na.rm = TRUE))
+
+fert_acid_md_barley = EA_join %>% group_by(AcidLevel) %>% 
+  summarise(`Median Fert Utilization` = median(BARLEY_FERT_PER_AREA_w, na.rm = TRUE),
+            `Median Yields` = median(BARLEY_OPH_w, na.rm = TRUE))
+
+fert_acid_md_maize = EA_join %>% group_by(AcidLevel) %>% 
+  summarise(`Median Fert Utilization` = median(MAIZE_FERT_PER_AREA_w, na.rm = TRUE),
+            `Median Yields` = median(MAIZE_OPH_w, na.rm = TRUE))
+
+fert_acid_md_wheat_barley_maize = rbind(fert_acid_md_wheat,fert_acid_md_barley)#,fert_acid_md_maize)
+
+fert_acid_md_region_wheat = EA_join %>% 
+              group_by(AcidLevel,REGION_NAME) %>% 
+              summarise(`Median Fert Utilization` = median(WHEAT_FERT_PER_AREA_w, na.rm = TRUE),
+                        `Median Yields` = median(WHEAT_OPH_w, na.rm = TRUE)) %>% na.omit()#%>% mutate(`Quintile Yield per kg/ha Fertilizer`= `Median Yields`/`Median Fert Utilization`)
+
+#devtools::install_github('davidgohel/flextable')
+name_level = c(AcidLevel = 'Acidity Level', REGION_NAME = 'Region')
+names(fert_acid_md_wheat) = recode(names(fert_acid_md_wheat),!!!name_level)
+
+ophtable =  (flextable(fert_acid_md_wheat)) 
+autofit(ophtable) %>% border_inner_h(border = std_border ,part='body')  
+```
+
+
+
+
+```{r plot wheat oph vs fertilizer utilization table region, warning=FALSE, cache=T, include=FALSE}
+names(fert_acid_md_region_wheat) = recode(names(fert_acid_md_region_wheat),!!!name_level)
+
+
+# order by region
+fert_acid_md_region_wheat = fert_acid_md_region_wheat[order(fert_acid_md_region_wheat$Region,fert_acid_md_region_wheat$`Acidity Level`),]
+
+
+# limit to Oromia and Tigray
+fert_acid_md_region_wheat = fert_acid_md_region_wheat[fert_acid_md_region_wheat$Region %in% c('Oromia','Tigray'),]
+
+acid_region = flextable(fert_acid_md_region_wheat)
+acid_region = merge_v(acid_region, j = c("Region") )
+#autofit(acid_region)
+
+# create bar graphs
+acid_region2 = compose( flextable(fert_acid_md_region_wheat),
+                        j = 3,
+                        value = as_paragraph(linerange(value = `Median Fert Utilization`,
+                                            max = max(`Median Fert Utilization`))),
+                        part = "body")
+
+acid_region2 = compose( acid_region2,
+                        j = 4,
+                        value = as_paragraph(linerange(value = `Median Yields`,
+                                            max = max(`Median Yields`))),
+                        part = "body")
+
+acid_region2 = merge_v(acid_region2, j = 2 )
+#acid_region = rotate(acid_region, rotation = "tbrl", align = "center",part = 'header')
+#autofit(theme_vanilla(acid_region))
+
+
+acid_region2 = autofit(acid_region2) %>% border_inner_h(border = std_border ,part='body')
+#print(acid_region2, preview = "docx")
+acid_region2
+
+save_as_image(x = acid_region2, path = paste0("Images/Figure_",Figure_number-1,'acid_region_line_graph.png'))
+save_as_image(x = acid_region2, path = paste0('Images/acid_region_line_graph.png'))
+
+tigray_acid_fert_wheat = fert_acid_md_region_wheat %>% filter(Region == 'Tigray' & `Acidity Level` == 'Strong_Acid')%>% pull('Median Fert Utilization')
+not_tigray_acid_fert_wheat = fert_acid_md_region_wheat %>% filter(Region != 'Tigray') %>% pull('Median Fert Utilization') %>% mean()
+
+```
+ 
+### Moving pH from 5.5 to 6.5 – A simplified case
+
+Based on expert opinion from soil scientists knowledgeable abut Ethiopian soil conditions, we can estimate the cost of lime to move the pH one unit, *from 5.5 to 6.5*, with approximately `r paste(round(tons_lime_ha_fn(5.5),2))` metric tons of lime per hectare.  The amount of lime required is roughly approximated using the trend line in Figure A1 in the appendix. We also assume the average distributed price for the major growing regions (Amhara, Oromia, SNNP, and Tigray) of lime is `r round(price,0)` ETB/mt or $`r paste(lime_price_dollars)`. This mean price includes transportation costs from lime crushing facilities to distribution centers but does not include either the "last-mile" transport or farmer application costs. Given these assumptions, the cost of increasing the pH one unit is estimated to be approximately `r round(total_lime_cost,0)` birr or $`r round(total_lime_cost/birr_convert)`.
+
+
+
+ 
+## Estimating multivariate response of wheat yield to pH changes
+
+Estimation results from the model described in the "Multivariate Estimation Strategy" section are shown below (Table `r Table_number`).  This regression allows us to examine how a one unit increase in fertilizer or pH effects wheat and barley yields while controlling for other potential determinants of productivity. The results largely match our expectations and coefficients are statistically significant at higher orders (indicating the statistical importance of non-linear estimation). To test a variety of alternative specifications presented in Appendix B. 
+ 
+
+
+```{r create crop EA_join,  message=FALSE,  warning=FALSE, echo=F}
+# echo=FALSE,  paged.print=TRUE,
+
+
+# use lime_mt_EA (estimates of lime by james)  lime_to_6_5!
+lime_mt_EA$lime_to_6_5[lime_mt_EA$ph >= 6.5] =0
+lime_mt_EA  = rename(lime_mt_EA,  EACODE =eacode )
+EA_join = inner_join(EA_join,(lime_mt_EA %>% select(EACODE,lime_to_6_5)), by='EACODE')
+
+# add spatial Lime price 
+EA_join = inner_join(EA_join,(all_EAs_PH %>% select(EACODE,EA_lime_price_sp)), by='EACODE')
+EA_join =EA_join %>% rename(lime_price_spatial = EA_lime_price_sp)
+
+EA_join$Total_agr_ecological =as.numeric(as.factor(EA_join$Total_agr_ecological))
+ 
+wheat_EA_join = EA_join[EA_join$WHEATAREA > 0,]
+maize_EA_join = EA_join[EA_join$MAIZEAREA > 0,]
+barley_EA_join = EA_join[EA_join$BARLEYAREA > 0,]
+ 
+wheat_EA_join  = wheat_EA_join %>% mutate( WHEAT_notdrought_damage =WHEATDAMAGE_PESTS_AREA + WHEATDAMAGE_MANAGE_AREA +WHEATDAMAGE_OTHER_AREA )
+maize_EA_join  = maize_EA_join %>% mutate( MAIZE_notdrought_damage =MAIZEDAMAGE_PESTS_AREA + MAIZEDAMAGE_MANAGE_AREA +MAIZEDAMAGE_OTHER_AREA )
+barley_EA_join  = barley_EA_join %>% mutate(BARLEY_notdrought_damage = BARLEYDAMAGE_PESTS_AREA + BARLEYDAMAGE_MANAGE_AREA +BARLEYDAMAGE_OTHER_AREA )
+
+# limit to minimum # of obs
+wheat_EA_join = wheat_EA_join %>% filter(., WHEATAREA > 0) %>% group_by(EACODE) %>% add_count() %>% filter(n >= 3)  
+maize_EA_join = maize_EA_join %>% filter(., MAIZEAREA > 0) %>% group_by(EACODE) %>% add_count() %>% filter(n >= 3)  
+barley_EA_join = barley_EA_join %>% filter(., MAIZEAREA > 0) %>% group_by(EACODE) %>% add_count() %>% filter(n >= 3)  
+```
+
+
+```{r pooled regression,  message=FALSE,  warning=FALSE, echo=F, cache=T}
+
+# choose polynomial order 
+wheat_poly_results = list()
+order= list()
+variable = c('PH','WHEAT_FERT_PER_AREA_w','CEC','SOC','SND','pdsi','elevation',
+             'WHEAT_EXT_AREA_p','WHEAT_IMSEED_p','WHEAT_IRG_AREA_p',
+             'WHEAT_DAMAGE_AREA_p','dist_pp50k')
+for(var in variable){
+    lm_list=list()
+      for(d in c(1,2,3,4,5)){
+        yX = 'WHEAT_OPH_w ~ poly(PH,1) + poly(WHEAT_FERT_PER_AREA_w,1)   +
+              poly(CEC,1)  +  poly(SOC,1) +  poly(SND,1) + poly(pdsi,1)  +
+              poly(elevation,1) +  poly(WHEAT_EXT_AREA_p,1)   + poly(WHEAT_IMSEED_p,1)  +
+              poly(WHEAT_IRG_AREA_p,1) +  poly(WHEAT_DAMAGE_AREA_p,1) +
+              poly(dist_pp50k,1) +
+              factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+factor(AGP_Dum)
+              + factor(REGIONCODE)'
+        
+        lm_list[[d]]= lm(yX %>% 
+                           str_replace(pattern =paste0(var,',1'),  
+                                  replace=paste0(var,',',as.character(d))),
+                                  data=wheat_EA_join)
+      }
+    result = anova(lm_list[[1]],lm_list[[2]],lm_list[[3]],lm_list[[4]],lm_list[[5]])
+    w_sig = min(which(result$`Pr(>F)`>0.05))
+    w_sig = ifelse(sum(c(result$`Pr(>F)`<0.05)[2:5])==4, 5, w_sig) #if all sig
+    order[var]= max(c(1,w_sig-1),rm.na=T)
+    wheat_poly_results[[var]] = c(result$`Pr(>F)`)
+}
+
+
+wheat_form =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+wheat_lm <- lm(wheat_form, data = wheat_EA_join)
+
+names(wheat_lm$coefficients)[13:14] = c("poly(SND, 4)1","poly(SND, 4)2")
+names(wheat_lm$coefficients)[17] = c("poly(WHEAT_EXT_AREA_p, 2)1")
+names(wheat_lm$coefficients) = names(wheat_lm$coefficients) %>% str_remove_all("WHEAT_")
+
+ 
+
+wheat_form2 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+                                               poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+wheat_lm2 <- lm(wheat_form2, data = wheat_EA_join)
+
+names(wheat_lm2$coefficients)[13:14] = c("poly(SND, 4)1","poly(SND, 4)2")
+names(wheat_lm2$coefficients)[17] = c("poly(WHEAT_EXT_AREA_p, 2)1")
+names(wheat_lm2$coefficients) = names(wheat_lm2$coefficients) %>% str_remove_all("WHEAT_")
+
+
+# choose polynomial order 
+barley_poly_results = list()
+order= list()
+variable = c('PH','BARLEY_FERT_PER_AREA_w','CEC','SOC','SND','pdsi','elevation',
+             'BARLEY_EXT_AREA_p','BARLEY_IMSEED_p','BARLEY_IRG_AREA_p',
+             'BARLEY_DAMAGE_AREA_p','dist_pp50k')
+for(var in variable){
+    lm_list=list()
+      for(d in c(1,2,3,4,5)){
+        yX = 'BARLEY_OPH_w ~ poly(PH,1) + poly(BARLEY_FERT_PER_AREA_w,1)   +
+              poly(CEC,1)  +  poly(SOC,1) +  poly(SND,1) + poly(pdsi,1)  +
+              poly(elevation,1) +  poly(BARLEY_EXT_AREA_p,1)   + poly(BARLEY_IMSEED_p,1)  +
+              poly(BARLEY_IRG_AREA_p,1) +  poly(BARLEY_DAMAGE_AREA_p,1) +
+              poly(dist_pp50k,1) +
+              factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+factor(AGP_Dum)
+              + factor(REGIONCODE)'
+        
+        lm_list[[d]]= lm(yX %>% 
+                           str_replace(pattern =paste0(var,',1'),  
+                                  replace=paste0(var,',',as.character(d))),
+                                  data=barley_EA_join)
+      }
+    result = anova(lm_list[[1]],lm_list[[2]],lm_list[[3]],lm_list[[4]],lm_list[[5]])
+    w_sig = min(which(result$`Pr(>F)`>0.05))
+    w_sig = ifelse(sum(c(result$`Pr(>F)`<0.05)[2:5])==4, 5, w_sig)
+    # w_sig = ifelse(is.na(c(result$`Pr(>F)`>0.05)[2]),1,w_sig) # if lower order are NA
+    # w_sig = ifelse(length(w_sig)>0,w_sig,1)  # if non are 
+    order[var]= max(c(1,w_sig-1),rm.na=T)
+    barley_poly_results[[var]] = c(result$`Pr(>F)`)
+
+}
+
+
+barley_form =  paste0('BARLEY_OPH_w ~poly(PH,',3,')  + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],') + 
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') + poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],') + poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],') +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm<- lm(barley_form, data = barley_EA_join)
+
+names(barley_lm$coefficients)[1:4] = c("(Intercept)","poly(PH, 4)1","poly(PH, 4)2","poly(PH, 4)3")
+names(barley_lm$coefficients)[7] = 'poly(CEC, 3)1'
+names(barley_lm$coefficients)[18] = "poly(BARLEY_IMSEED_p, 3)1"
+names(barley_lm$coefficients) = names(barley_lm$coefficients) %>% str_remove_all("BARLEY_")
+ 
+
+
+barley_form2 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,')  + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],') + 
+                            poly(SOC,',order['SOC'],') +  poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+                                                poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm2 <- lm(barley_form2, data = barley_EA_join)
+
+names(barley_lm2$coefficients)[1:4] = c("(Intercept)","poly(PH, 4)1","poly(PH, 4)2","poly(PH, 4)3")
+names(barley_lm2$coefficients)[17] = "poly(BARLEY_IMSEED_p, 3)1"
+names(barley_lm2$coefficients) = names(barley_lm2$coefficients) %>% str_remove_all("BARLEY_")
+ 
+
+
+k = 6; k_fert = 6; k_p=4; fx = F ; bs = 'cr' #
+maize_form = MAIZE_OPH_w ~ s(PH,bs=bs,fx=fx,k=k)+s(MAIZE_FERT_PER_AREA_w,bs=bs,fx=fx,k=k_fert)  +
+     s(CEC,bs=bs,fx=fx,k=k) +  s(SOC,bs=bs,fx=fx,k=k)  + s(SND,bs=bs,fx=fx,k=k)   +  s(pdsi,bs=bs,fx=fx,k=k)+
+     s(elevation,bs=bs,fx=fx,k=k) + s(MAIZE_EXT_AREA_p,bs=bs,fx=fx,k=k_p) +  s(MAIZE_IMSEED_p,bs=bs,fx=fx,k=k_p)+
+     s(MAIZE_IRG_AREA_p,bs=bs,fx=fx,k=k_p)+s(MAIZE_DAMAGE_AREA_p,bs=bs,fx=fx,k=k_p)+
+     s(dist_pp50k,bs=bs,fx=fx,k=k)   +  factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+
+     factor(AGP_Dum) +  factor(REGIONCODE)
+
+maize_lm<- gam(maize_form, data = maize_EA_join)
+
+
+```
+
+```{r  include=F}
+#,message=FALSE, warning=FALSE, paged.print=T,results= if (is_word) 'markup' else 'asis'}
+
+star = stargazer(wheat_lm,wheat_lm2, barley_lm,barley_lm2,
+              #type=ifelse(is_word,'text','latex'), 
+              style = 'ajps',
+              type='latex',
+          header = F,
+          report = 'vc*',  font.size='small',
+          align = T,
+          no.space=T,
+          column.sep.width = "2pt",
+          dep.var.labels=c('Wheat Yield','Barley Yield'), 
+          omit = c('Total_agr_ecological','Year','PSNP_Dum','AGP_Dum','REGIONCODE'),
+          omit.stat = c("rsq", "f",'n','res.dev'),
+          covariate.labels =
+            c("p(PH, 1)" ,"p(PH, 2)","p(PH, 3)","p(PH, 4)","p(Fert, 1)", "p(Fert, 2)","p(CEC,1)","p(CEC,2)","p(CEC,3)","p(SOC, 1)","p(SOC, 2)","p(SND, 1)","p(SND, 2)","p(SND, 3)","p(SND, 4)",
+              "PDSI","Elevation",
+           "p(Ext.Area, 2)", "p(Ext.Area, 2)","p(Imp.Seed,1)","p(Imp.Seed,2)","p(Imp.Seed,3)","Irg.Area",
+              "p(Damage, 1)","p(Damage, 2)","p(Damage, 3)","p(Damage, 4)","DistPP"),
+         add.lines = list(c("Fixed effects", rep('Yes',4)))
+              
+          )
+
+
+``` 
+
+\newpage
+*Table* `r paste(Table_number)`*: Wheat & Barley yield regression estimates  *
+`r regression2 =Table_number; Table_number =Table_number+1 `
+
+```{r mylatextable, results = "asis", echo=FALSE}
+
+# remove table # \caption tag
+star = sub('^.+\\caption.+$','', star)
+cat(star, sep='\n')
+```
+\newpage
+
+To isolate the marginal effect of pH and fertilizer on yields, we hold all other variables at their mean (fixed effects variables are set to a specific year and zone), while letting the variable of interest vary. As expected, highly acidic soils (low pH) show low levels of productivity, increasing significantly with higher pH, until an inflection point. Response curves from regressions one and three are shown below. Because lime is largely unavailable to most farmers, these curves are based on spatial variability in observed pH and yields, rather than on plot-level  applications of lime. As such, they are indicative of the impact of lime, and are not definitive results. Further research, at the plot level of the representative farmer using lime, is strongly recommended. 
+
+```{r prepare data for splines PH, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
+
+vary_one_lm = function (lm_form, data, varies, out_prefix,data_range=T,form_class){
+  # need to hold other variables at mean, set year to 2014, Z_Code to 310, and let Ph vary
+  # get means and set up matrix
+  if (form_class[1] == 'lm'){
+      pred_data = na.omit(get_all_vars(lm_form,data))
+  }else{
+      pred_data = na.omit(get_all_vars(lm_form,data))%>% select(-c(bs,fx,k))
+  }
+  col_means = pred_data %>% colMeans(.,na.rm=T)
+  for(i in 1:length(col_means)){pred_data[,i]=col_means[i]}
+
+  # fix all fertilizer to 0 as the baseline?
+  if(fix_fert_at_0 ==TRUE){pred_data[grep('FERT_PER_AREA_w',names(pred_data))] =0}
+   
+  # let variable vary
+  pred_data[,grepl(varies,names(pred_data))] =   na.omit(get_all_vars(lm_form,data))[,
+      grepl(varies,names(na.omit(get_all_vars(lm_form,EA_join))))]
+  
+  # decide which FE to calculate the mean predictions for 
+  # for (name in c('Year','ZONECODE','WOREDACODE','Total_agr_ecological','REGIONCODE')){
+  #     pred_data[,grepl(name,names(pred_data))] =   na.omit(get_all_vars(lm_form,data))[,
+  #         grepl(name,names(na.omit(get_all_vars(lm_form,EA_join))))]
+  # }
+  # 
+  if(data_range==T){
+    # set varies to match range of dataset not actual data
+    data_range = range(pred_data[,grepl(varies,names(pred_data))])
+    pred_data[,grepl(varies,names(pred_data))]  = seq(data_range[1],data_range[2],length=dim(pred_data)[1])
+  }
+  
+  # to do this could be averaged rather than set. 
+  
+  # set year to 2014 and zcode to 309
+  pred_data$Year = 2010
+  pred_data$ZONECODE = 302
+  pred_data$WOREDACODE = 30310
+  pred_data$Total_agr_ecological = 8
+  pred_data$REGIONCODE = 3
+   pred_data$PSNP_Dum = 0
+   pred_data$AGP_Dum = 0 
+
+  # if allowing something else to vary fix PH at 5.5
+  if(varies != 'PH'){pred_data$PH = 5.5}
+  
+  # sort pred by variable
+  pred_data = pred_data[order(pred_data[varies]),]
+  assign(paste(out_prefix,varies,'pred_data',sep='_'),pred_data,envir = globalenv())
+
+  # # find range of variables
+  ph_rng = range(data[varies],na.rm = T)
+  ph_grid = seq(from=ph_rng[1], to = ph_rng[2], length.out = dim(pred_data)[1])
+  assign(paste(out_prefix,varies,'grid',sep='_'),ph_grid,envir = globalenv())
+  
+  # spline prediction
+  if (form_class[1] == 'lm'){
+        spline_pred = predict(lm(formula = lm_form,data=data), newdata = pred_data, se.fit=T)
+  }else{
+        spline_pred = predict(gam(formula = lm_form,data=data), newdata = pred_data, se.fit=TRUE)
+        # failed attempt to find mean pred by FE 
+        # pred_data$spline_pred  = predict(gam(formula = lm_form,data=data), newdata = pred_data)
+        # pred_data %>% group_by('Year') %>% summarise(.,spline_pred = mean(spline_pred))
+#
+        # use this to caluclate SE !!!!!!!!
+        #https://www.r-bloggers.com/2011/11/confidence-interval-for-predictions-with-glms/
+  }
+  
+
+  assign(paste(out_prefix,varies,'spline_pred',sep='_'),spline_pred$fit,envir = globalenv())
+  assign(paste(out_prefix,varies,'spline_pred_se',sep='_'),spline_pred$se.fit,envir = globalenv())
+
+}  
+
+# run splines estimation 
+vary_one_lm(lm_form=wheat_form, data=wheat_EA_join, varies='PH', out_prefix='WHEAT', data_range=T, form_class = class(wheat_lm))
+vary_one_lm(lm_form=barley_form, data=barley_EA_join, varies='PH',out_prefix='BARLEY',data_range=T ,form_class = class(barley_lm))
+vary_one_lm(lm_form=maize_form, data=na.omit(get_all_vars(maize_form,maize_EA_join)), varies='PH',out_prefix='MAIZE',data_range=T,form_class = class(maize_lm) )
+
+```
+
+ 
+*Figure* `r paste(Figure_number)`*: Estimated response of wheat yield to changes in pH*`r ph_oph_trace =Figure_number; Figure_number =Figure_number+1 `
+
+```{r prep plot splines Mean pH, echo=FALSE, message=FALSE, warning=FALSE}
+  # spline regression estimate
+  # ADD LINE THICKNESS BY N
+
+  wheat_ggframe_ph = data.frame(ph_grid=WHEAT_PH_pred_data$PH, pH_spline =WHEAT_PH_spline_pred, 
+                                  pH_spline_se =WHEAT_PH_spline_pred_se, Crop='Wheat')
+
+  WHEAT_PH_oph_spline_5_5 = wheat_ggframe_ph[ 
+    min(which((signif(wheat_ggframe_ph$ph_grid,3)==5.50) == TRUE)),'pH_spline']
+  WHEAT_PH_oph_spline_6_5 = wheat_ggframe_ph[ 
+    max(which((signif(wheat_ggframe_ph$ph_grid,3)==6.50)  == TRUE)),'pH_spline']
+  WHEAT_PH_oph_impact     = WHEAT_PH_oph_spline_6_5/WHEAT_PH_oph_spline_5_5
+  WHEAT_PH_oph_spline_OPH = WHEAT_PH_oph_spline_6_5 - WHEAT_PH_oph_spline_5_5
+  
+  barley_ggframe_ph = data.frame(ph_grid=BARLEY_PH_pred_data$PH, pH_spline =BARLEY_PH_spline_pred, 
+                                  pH_spline_se =BARLEY_PH_spline_pred_se, Crop='Barley')
+  
+  BARLEY_PH_oph_spline_5_5 = barley_ggframe_ph[ 
+    max(which((signif(barley_ggframe_ph$ph_grid,3)==5.50)  == TRUE)),'pH_spline']
+  BARLEY_PH_oph_spline_6_5 = barley_ggframe_ph[ 
+    max(which((signif(barley_ggframe_ph$ph_grid,3)==6.50)  == TRUE)),'pH_spline']
+  BARLEY_PH_oph_impact     = BARLEY_PH_oph_spline_6_5/BARLEY_PH_oph_spline_5_5
+  BARLEY_PH_oph_spline_OPH = BARLEY_PH_oph_spline_6_5 - BARLEY_PH_oph_spline_5_5
+  
+  maize_ggframe_ph = data.frame(ph_grid=MAIZE_PH_pred_data$PH, pH_spline =MAIZE_PH_spline_pred, 
+                                  pH_spline_se =MAIZE_PH_spline_pred_se, Crop='Maize')
+
+  MAIZE_PH_oph_spline_5_5 = maize_ggframe_ph[ 
+    max(which((signif(maize_ggframe_ph$ph_grid,3)==5.50)  == TRUE)),'pH_spline']
+  MAIZE_PH_oph_spline_6_5 = maize_ggframe_ph[ 
+    max(which((signif(maize_ggframe_ph$ph_grid,3)==6.50)  == TRUE)),'pH_spline']
+  
+  MAIZE_PH_oph_impact     = MAIZE_PH_oph_spline_6_5/MAIZE_PH_oph_spline_5_5
+  MAIZE_PH_oph_spline_OPH = MAIZE_PH_oph_spline_6_5 - MAIZE_PH_oph_spline_5_5
+
+  ph_frame = rbind(wheat_ggframe_ph,barley_ggframe_ph,maize_ggframe_ph)
+
+```
+
+```{r plot splines Mean pH, echo=FALSE, message=FALSE, warning=FALSE}
+    
+f  = ggplot()+
+      geom_ribbon(data=ph_frame %>% filter(Crop!='Maize'), 
+                  aes(x = ph_grid,ymin = qq2ton(pH_spline - 1.96*pH_spline_se), 
+                      ymax = qq2ton(pH_spline + 1.96*pH_spline_se)), fill = "grey70", alpha = 0.5)+
+       geom_line(data=ph_frame %>% filter(Crop!='Maize'),aes(x=ph_grid,y=qq2ton(pH_spline),color=Crop),size=2) +#coord_cartesian(ylim = c(14,25))+ 
+    theme_minimal()+xlab('pH')+ylab(paste0('Yields (',yield_units,')'))+coord_cartesian(ylim=c(1.0,2.5),xlim=c(5,8))+
+      facet_wrap(.~Crop,scales = 'fixed') +scale_y_continuous(breaks = seq(1,50,by=1),) 
+
+ggsave(f, filename = paste0("Images/Figure_",Figure_number-1,"_lime_ophgain.png"),width = 5, bg = '#ffffff')
+
+# save for bookdown
+#ggsave(paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/lime_ophgain.png"),width=5)  
+
+f
+```
+
+Figure `r ph_oph_trace` is used to estimate the yield response obtained from moving pH to a minimum of 6.5. We see differences between soils with a pH of 5.5 to those with 6.5 corresponds to a `r round((WHEAT_PH_oph_impact-1)*100,1)`% increase in yields for wheat, and `r round((BARLEY_PH_oph_impact-1)*100,1)`% for barley, ceteris paribus. However, there are a small number of observations at the tails of the pH distribution where yields increase. These observations are infrequent, as reflected in the increasing 95% confidence intervals, but likely reflect the extraordinary application of fertilizer in low productivity area, especially in Tigray and Amhara (see Figure `r fert_ph_fig_num`). 
+
+The gains obtained from the generalized case of moving soil pH from 5.5 to 6.5 for both crops is presented in Table `r paste(Table_number)` below.  
+
+*Table* `r paste(Table_number)`*: Estimated yield gains from changing pH from 5.5 to 6.5*`r Table_ph_OPH = Table_number; Table_number =Table_number+1 ` 
+
+```{r benefit of moving from 5_5 to 6_5, message=FALSE, warning=FALSE,  cache=FALSE}
+
+
+PH_dataframe = data.frame(Crop = c('Wheat','Barley','Maize'),
+                          `OPH Gain` =c(qq2ton(WHEAT_PH_oph_spline_6_5-WHEAT_PH_oph_spline_5_5),
+                                        qq2ton(BARLEY_PH_oph_spline_6_5-BARLEY_PH_oph_spline_5_5),
+                                        qq2ton(MAIZE_PH_oph_spline_6_5-MAIZE_PH_oph_spline_5_5)),
+                          `OPH Percent Gain`=c(round((WHEAT_PH_oph_impact-1)*100,2),
+                                         round((BARLEY_PH_oph_impact-1)*100,2),
+                                    round((MAIZE_PH_oph_impact-1)*100,2)))
+names(PH_dataframe) = c('Crop','Yield Gain\n(mt/ha)', 'Yield Gain\n(%)')
+row.names(PH_dataframe) = c('Wheat','Barley','Maize')
+saveRDS(PH_dataframe,file = './Images/PH_dataframe.rds')
+
+ft = autofit(flextable(PH_dataframe %>% filter(Crop!='Maize'))  %>% set_formatter_type(fmt_double="%.2f") ) %>% border_inner_h(border = std_border ,part='body')  
+# 
+ft
+# 
+# if( require("webshot") ){
+#   #save_as_image(x = ft, path = "../../Ethiopia_Soil_Acidity_2019_Book/Images/benefit_55_65_table.png")
+# }
+```
+
+We can also look at the spatial distribution of these gains in productivity based on actual pH levels. The Appendix presents maps (Figures A2-3) showing the impact of increasing the observed pH to a minimum of 6.5 for both barley and wheat. We can also visualize the marginal response of fertilizer applications:
+
+```{r prepare data for splines fert lime plots, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE,cache=F}
+
+calc_fert_stats = function(lm_form, data, varies, out_prefix,form_class){
+  
+  # create splines for fertilizer 
+  vary_one_lm(lm_form = lm_form,data =  data,varies =  varies, out_prefix = out_prefix, data_range = T,form_class=form_class)
+
+  ggframe_fert = data.frame(fert_grid=get(paste(out_prefix,varies,'pred_data',sep='_'))[,varies], 
+                                fert_spline = get(paste(out_prefix,varies,'spline_pred',sep='_')), 
+                                fert_spline_se = get(paste(out_prefix,varies,'spline_pred_se',sep='_')), 
+                                Crop=gsub("_.*$", "", varies))
+  
+  assign(paste(out_prefix,'ggframe_fert',sep='_'), ggframe_fert,envir = globalenv())
+
+  
+  # get spline predications for varies 
+  # spline_pred = get(paste(out_prefix,varies,'spline_pred',sep='_'))
+  # fert_grid = get(paste(out_prefix,varies,'grid',sep='_'))
+   
+  #  calculate change between 0 and 100kg  of N 
+  fert_oph_spline_0 = ggframe_fert$fert_spline[closest_loc(ggframe_fert$fert_spline,0)] # yield with 0
+  fert_oph_spline_100 = ggframe_fert$fert_spline[closest_loc(ggframe_fert$fert_grid,100)]
+  assign(paste(out_prefix,'fert_oph_100_OPH',sep='_'), fert_oph_spline_100-fert_oph_spline_0,envir = globalenv())
+  
+  # find fertilizer Q that matches improvement in yield of that of going from 5.5 to 6.5 pH
+  oph_spline_OPH = get(paste(out_prefix,'PH','oph_spline_OPH',sep='_'))  # oph benefit from ph 5.5 to 6.5
+  Qfert_eq_ph =  ggframe_fert$fert_grid[closest_loc(ggframe_fert$fert_spline, 
+                            (fert_oph_spline_0+oph_spline_OPH))]
+  
+  assign(paste(out_prefix,'Qfert_eq_ph',sep='_'), Qfert_eq_ph,envir = globalenv() )
+}
+
+calc_fert_stats(lm_form=wheat_form, data=wheat_EA_join, varies='WHEAT_FERT_PER_AREA_w',out_prefix='WHEAT', form_class = class(wheat_lm))
+calc_fert_stats(lm_form=barley_form, data=barley_EA_join, varies='BARLEY_FERT_PER_AREA_w', out_prefix='BARLEY', form_class = class(barley_lm))
+calc_fert_stats(lm_form=maize_form, data=na.omit(get_all_vars(maize_form,maize_EA_join)),
+                varies='MAIZE_FERT_PER_AREA_w',out_prefix='MAIZE', form_class = class(maize_form))
+ 
+
+wheat_ggframe_fert = get('WHEAT_ggframe_fert')
+barley_ggframe_fert = get('BARLEY_ggframe_fert')
+maize_ggframe_fert = get('MAIZE_ggframe_fert')
+ 
+
+```
+
+
+
+<!-- We also trace the impact of increasing fertilization rates for wheat and barley below.  -->
+ 
+*Figure* `r paste(Figure_number)`*: Marginal yield response of wheat yield to changes in fertilizer application holding pH at 5.5*`r fert_oph_trace =Figure_number; Figure_number =Figure_number+1 `
+
+
+```{r plot splines fert, echo=FALSE, message=FALSE, warning=FALSE,cache=F}
+
+# spline regression estimate
+fert_frame = rbind(wheat_ggframe_fert,barley_ggframe_fert)#,maize_ggframe_fert)
+g = ggplot()+
+   geom_ribbon(data=fert_frame, 
+                  aes(x = fert_grid,ymin = qq2ton(fert_spline - 1.96*fert_spline_se), 
+                      ymax = qq2ton(fert_spline + 1.96*fert_spline_se)), fill = "grey70", alpha = 0.5)+
+      geom_line(data=fert_frame,aes(x=fert_grid,y=qq2ton(fert_spline),color=Crop),size=2) + 
+      facet_wrap(.~Crop,scales = 'fixed',) + 
+      theme_minimal() +xlab('Fertilizer Application (kg/ha)')+
+      ylab(paste0('Yields (',yield_units,')'))#+coord_cartesian(xlim=c(0,1465),ylim=c(10,25))
+
+ggsave(g, filename = paste0("Images/Figure_",Figure_number-1,"_fertilizer_mn_ph.png"),width = 5, bg = '#ffffff')
+g
+# save for bookdown
+#ggsave(paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/fertilizer_ophgain.png"),width=5)  
+```
+
+```{r gather regression  results table, eval=FALSE, include=F}
+try(my_doc <- read_docx(logger))
+ 
+my_doc <- my_doc %>%
+  body_add_par(paste0('k=',k,' k_fert=' , k_fert,' fx=' , as.character(fx),' bs=' , bs) , style = "Normal")  %>%
+  body_add_table(PH_dataframe) %>%
+  body_add_img(src ="./Images/barley_lm.png", width = 4, height = 4,style = "Normal") %>%
+  body_add_img(src ="./Images/lime_ophgain.png", width = 4, height = 4,style = "Normal") %>%
+  body_add_img(src ="./Images/fertilizer_ophgain_.png", width = 4, height = 4,style = "Normal") %>%
+  body_add_par("", style = "Normal") %>% # blank paragraph 
+  body_add_par("======================================================================", style = "Normal") %>% 
+
+print(my_doc, target = logger)
+```
+
+
+Figure `r fert_oph_trace` is used to estimate the yield response from the application of fertilizer. For wheat and barley, adding an additional 100 kg per ha of fertilizer, holding pH at 5.5, corresponds to a `r qq2ton(round(WHEAT_fert_oph_100_OPH,2))` and `r qq2ton(round(BARLEY_fert_oph_100_OPH,2))` `r paste(yield_units)` increase in yields. 
+
+
+```{r Regional impacts tables ONLY LOOKING AT ACID SOIL AREAS, fig.width=4, message=FALSE, warning=FALSE, cache=T, include=TRUE}
+
+for (crop in c('wheat', 'barley', 'maize')) {
+  
+  # get crop data
+  crop_ea_join = get(paste(crop, '_EA_join', sep = ''))
+  
+  # LIMIT TO ONLY ACID SOIL AREAS, OTHERWISE MANY AREAS ARE 0 BC THEY ARE NOT ACIDIC
+  crop_ea_join = crop_ea_join[crop_ea_join$PH < 6.5,]
+  
+  # add spatial lime price all_EAs_PH
+  
+  # Calculate updating ph to 6.5 on actual data (given current fertilizer applications too)
+  lm = get(paste(crop, '_lm', sep = ''))
+  lm_pred =  predict(lm, newdata = crop_ea_join)
+  
+  lm_vars_min_6_5 = get_all_vars(get(paste(crop, '_lm', sep = '')), crop_ea_join)
+  lm_vars_min_6_5$PH[lm_vars_min_6_5$PH < 6.5] = 6.5   # Set to ph to 6.5 and repredict
+  
+  lm_pred_min_6_5 = predict(lm , newdata = lm_vars_min_6_5)
+  
+  # get actual fertilizers values too
+  name = paste(toupper(crop), '_FERT_PER_AREA_w', sep = '')
+  fert = crop_ea_join %>% ungroup() %>% select(name)
+  
+  # find changed yield if was below pH 6.5
+  crop_chg_to_6_5 =      data.frame(
+    EACODE = crop_ea_join$EACODE,
+    lm_pred_6_5_less_actual = (lm_pred_min_6_5 - lm_pred),
+    PH = crop_ea_join$PH,
+    fert = fert,
+    lime_to_6_5 = crop_ea_join$lime_to_6_5,
+    lime_price_spatial = crop_ea_join$lime_price_spatial,
+    REGION_NAME = crop_ea_join$REGION_NAME,
+    ZONECODE = crop_ea_join$ZONECODE
+  )
+  
+  
+  # estimate the amount of fertilizer needed to move from actual oph to ph => 6.5, by using wheat_ggframe_fert
+  crop_ggframe_fert = get(paste(crop, '_ggframe_fert', sep = ''))
+  crop_ggframe_fert = crop_ggframe_fert %>% 
+                            mutate(OPH_gain_fert = cumsum(c( 0, diff(crop_ggframe_fert$fert_spline))))
+  
+  # find the amount of fertilizer needed to match the 6.5 ph
+  crop_chg_to_6_5 = crop_chg_to_6_5 %>% rowwise() %>%
+      mutate(fert_needed_to_match_6_5 =
+          crop_ggframe_fert$fert_grid[closest_loc(lm_pred_6_5_less_actual, crop_ggframe_fert$OPH_gain_fert)]) %>%
+      # calculate PV of fertilizer costs
+       mutate( pv_fert = pv( r = discount_rate, n = pv_years, fv = 0, 
+                        pmt = fert_needed_to_match_6_5 * fertilizer_P_kg,type = 1) 
+        ) %>%
+        mutate( pv_fert_inf = PV_inf( r = discount_rate, n = pv_years, fv = 0, 
+                        pmt = fert_needed_to_match_6_5 * fertilizer_P_kg,type = 1, inf = inflation) 
+          ) %>%
+    ### calculate PV of lime costs  ########## 
+       mutate( pv_lime_spatial = pv( r = discount_rate, n = 1, fv = 0, 
+                        pmt = lime_to_6_5 * lime_price_spatial,type = 1)
+        ) %>% 
+        mutate( pv_lime_spatial_inf = PV_inf( r = discount_rate, n = 1, fv = 0, 
+                        pmt = lime_to_6_5 * lime_price_spatial ,type = 1, inf = inflation) 
+          )   
+  
+  assign(paste(crop, '_chg_to_6_5', sep = ''),
+         crop_chg_to_6_5,
+         envir = globalenv())
+  
+}
+
+# average OPH_chng_i_65 by REGION_NAME all eas
+all_oph = data.frame(
+  `pH.Level` = 'All',
+  Crop = rep(c('Wheat', 'Barley', 'Maize'), 4),
+  Region = sort(rep(c(
+    'Amhara', 'Oromia', 'SNNP', 'Tigray'
+  ), 3)),
+  Change.in.OPH = NA
+)
+
+all_oph[all_oph$Crop == 'Wheat', 'Change.in.OPH'] = wheat_chg_to_6_5 %>% 
+  group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>%
+  select('Region_mean_oph_chg')
+
+all_oph[all_oph$Crop == 'Barley', 'Change.in.OPH'] = barley_chg_to_6_5 %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>%
+  select('Region_mean_oph_chg')
+
+all_oph[all_oph$Crop == 'Maize', 'Change.in.OPH'] = maize_chg_to_6_5 %>% group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>%
+  select('Region_mean_oph_chg')
+
+# fert needed to match 6.5 ph
+all_oph[all_oph$Crop == 'Wheat', 'Fert.needed.match.6.5'] = wheat_chg_to_6_5 %>% group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>%
+  select('Region_fert_needed_to_match_6_5')
+
+all_oph[all_oph$Crop == 'Barley', 'Fert.needed.match.6.5'] = barley_chg_to_6_5 %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>%
+  select('Region_fert_needed_to_match_6_5')
+
+all_oph[all_oph$Crop == 'Maize', 'Fert.needed.match.6.5'] = maize_chg_to_6_5 %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>%
+  select('Region_fert_needed_to_match_6_5')
+
+# PV of fert needed to match 6.5 ph
+all_oph[all_oph$Crop == 'Wheat', 'PV.Fert.needed.match.6.5'] = wheat_chg_to_6_5 %>% group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>%
+  select('Region_PV_fert_needed_to_match_6_5')
+
+all_oph[all_oph$Crop == 'Barley', 'PV.Fert.needed.match.6.5'] = barley_chg_to_6_5 %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>%
+  select('Region_PV_fert_needed_to_match_6_5')
+
+all_oph[all_oph$Crop == 'Maize', 'PV.Fert.needed.match.6.5'] = maize_chg_to_6_5 %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>%
+  select('Region_PV_fert_needed_to_match_6_5')
+
+# PV of LIME needed to match 6.5 ph
+all_oph[all_oph$Crop == 'Wheat', 'PV.Lime.needed.match.6.5'] = wheat_chg_to_6_5 %>% group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+all_oph[all_oph$Crop == 'Barley', 'PV.Lime.needed.match.6.5'] = barley_chg_to_6_5 %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+all_oph[all_oph$Crop == 'Maize', 'PV.Lime.needed.match.6.5'] = maize_chg_to_6_5 %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+################# mod acidic ################
+
+# average OPH_chng_i_65 by zone acidic soils
+acidic_oph = data.frame(
+  `pH.Level` = 'Moderately Acid',
+  Crop = rep(c('Wheat', 'Barley', 'Maize'), 3),#4),
+  Region = sort(rep(c( 'Amhara', 'Oromia', 'SNNP' # 'Tigray' tigray has no moderately acidic soils
+                       ), 3)),
+  Change.in.OPH = NA
+)
+
+acidic_oph[acidic_oph$Crop == 'Wheat', 'Change.in.OPH'] = wheat_chg_to_6_5 %>% 
+  filter(PH > 5.5 &  PH <= 6) %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>% select('Region_mean_oph_chg')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'Change.in.OPH'] = barley_chg_to_6_5 %>% 
+  filter(PH >5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>% select('Region_mean_oph_chg')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'Change.in.OPH'] = maize_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>% select('Region_mean_oph_chg')
+
+acidic_oph$OPH.Change = acidic_oph$Change.in.OPH
+
+
+# pH median
+acidic_oph[acidic_oph$Crop == 'Wheat', 'median_ph'] = wheat_chg_to_6_5 %>% 
+  filter(PH > 5.5 &  PH <= 6) %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(median_ph = median(PH, na.rm = T)) %>% select('median_ph')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'median_ph'] = barley_chg_to_6_5 %>% 
+  filter(PH >5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(median_ph = median(PH, na.rm = T)) %>% select('median_ph')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'median_ph'] = maize_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(median_ph = median(PH, na.rm = T)) %>% select('median_ph')
+
+
+
+# fert needed to match 6.5 ph
+acidic_oph[acidic_oph$Crop == 'Wheat', 'Fert.needed.match.6.5'] = wheat_chg_to_6_5 %>% 
+  filter(PH >  5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>% select('Region_fert_needed_to_match_6_5')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'Fert.needed.match.6.5'] = barley_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>% select('Region_fert_needed_to_match_6_5')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'Fert.needed.match.6.5'] = maize_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% dplyr::group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>% select('Region_fert_needed_to_match_6_5')
+
+# PV of fert needed to match 6.5 ph
+acidic_oph[acidic_oph$Crop == 'Wheat', 'PV.Fert.needed.match.6.5'] = wheat_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>% select('Region_PV_fert_needed_to_match_6_5')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'PV.Fert.needed.match.6.5'] = barley_chg_to_6_5 %>% 
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>% select('Region_PV_fert_needed_to_match_6_5')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'PV.Fert.needed.match.6.5'] = maize_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>% select('Region_PV_fert_needed_to_match_6_5')
+
+
+# PV of LIME needed to match 6.5 ph
+acidic_oph[acidic_oph$Crop == 'Wheat', 'PV.Lime.needed.match.6.5'] = wheat_chg_to_6_5 %>% 
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'PV.Lime.needed.match.6.5'] = barley_chg_to_6_5 %>%
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'PV.Lime.needed.match.6.5'] = maize_chg_to_6_5 %>%   
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+# ------------- Inflation
+# PV of fert needed to match 6.5 ph with inflation
+acidic_oph[acidic_oph$Crop == 'Wheat', 'PV.Fert.needed.match.6.5_inf'] = wheat_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5_inf = median(pv_fert_inf, na.rm = T)) %>% select('Region_PV_fert_needed_to_match_6_5_inf')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'PV.Fert.needed.match.6.5_inf'] = barley_chg_to_6_5 %>% 
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5_inf = median(pv_fert_inf, na.rm = T)) %>% select('Region_PV_fert_needed_to_match_6_5_inf')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'PV.Fert.needed.match.6.5_inf'] = maize_chg_to_6_5 %>% 
+  filter(PH > 5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5_inf = median(pv_fert_inf, na.rm = T)) %>% select('Region_PV_fert_needed_to_match_6_5_inf')
+
+# PV of LIME needed to match 6.5 ph with inflation
+acidic_oph[acidic_oph$Crop == 'Wheat', 'PV.Lime.needed.match.6.5_inf'] = wheat_chg_to_6_5 %>% 
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5_inf = median(pv_lime_spatial_inf, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5_inf')
+
+acidic_oph[acidic_oph$Crop == 'Barley', 'PV.Lime.needed.match.6.5_inf'] = barley_chg_to_6_5 %>%
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5_inf = median(pv_lime_spatial_inf, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5_inf')
+
+acidic_oph[acidic_oph$Crop == 'Maize', 'PV.Lime.needed.match.6.5_inf'] = maize_chg_to_6_5 %>%   
+  filter(PH >  5.5 & PH <= 6) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5_inf = median(pv_lime_spatial_inf, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5_inf')
+
+
+######## High acidic ##############
+
+# average OPH_chng_i_65 by REGION_NAME highly acidic soils
+h_acidic_oph = data.frame(
+  `pH.Level` = 'Highly Acid',
+  Crop = rep(c('Wheat', 'Barley', 'Maize'), 4),
+  Region = sort(rep(c('Amhara', 'Oromia', 'SNNP', 'Tigray'), 3)),
+  Change.in.OPH = NA
+)
+
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'Change.in.OPH'] = wheat_chg_to_6_5 %>%
+  filter(PH <= 5.5) %>%   dplyr::group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>% select('Region_mean_oph_chg')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'Change.in.OPH'] = barley_chg_to_6_5 %>% 
+  filter(PH <=  5.5) %>% dplyr::group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>% select('Region_mean_oph_chg')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'Change.in.OPH'] = maize_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% dplyr::group_by(REGION_NAME) %>%  
+  dplyr::summarize(Region_mean_oph_chg = median(lm_pred_6_5_less_actual, na.rm = T)) %>% select('Region_mean_oph_chg')
+
+h_acidic_oph$OPH.Change = h_acidic_oph$Change.in.OPH
+
+
+# pH median
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'median_ph'] = wheat_chg_to_6_5 %>% 
+  filter(PH <= 5.5)  %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(median_ph = median(PH, na.rm = T)) %>% select('median_ph')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'median_ph'] = barley_chg_to_6_5 %>% 
+  filter(PH <= 5.5)  %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(median_ph = median(PH, na.rm = T)) %>% select('median_ph')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'median_ph'] = maize_chg_to_6_5 %>% 
+  filter(PH <= 5.5)  %>% dplyr::group_by(REGION_NAME) %>% 
+  dplyr::summarize(median_ph = median(PH, na.rm = T)) %>% select('median_ph')
+
+
+
+
+# fert needed to match 6.5 ph
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'Fert.needed.match.6.5'] = wheat_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% dplyr::group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>% select('Region_fert_needed_to_match_6_5')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'Fert.needed.match.6.5'] = barley_chg_to_6_5 %>% 
+  filter(PH <=  5.5) %>% dplyr::group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>% select('Region_fert_needed_to_match_6_5')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'Fert.needed.match.6.5'] = maize_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% dplyr::group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_fert_needed_to_match_6_5 = median(fert_needed_to_match_6_5, na.rm = T)) %>% select('Region_fert_needed_to_match_6_5')
+
+# PV of fert needed to match 6.5 ph
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'PV.Fert.needed.match.6.5'] = wheat_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>% 
+  select('Region_PV_fert_needed_to_match_6_5')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'PV.Fert.needed.match.6.5'] = barley_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>% 
+  select('Region_PV_fert_needed_to_match_6_5')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'PV.Fert.needed.match.6.5'] = maize_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5 = median(pv_fert, na.rm = T)) %>% 
+  select('Region_PV_fert_needed_to_match_6_5' )
+
+# PV of LIME needed to match 6.5 ph
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'PV.Lime.needed.match.6.5'] = wheat_chg_to_6_5 %>%
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'PV.Lime.needed.match.6.5'] = barley_chg_to_6_5  %>%
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'PV.Lime.needed.match.6.5'] = maize_chg_to_6_5  %>%
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5 = median(pv_lime_spatial, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5')
+
+# ------------- Inflation
+
+# PV of fert needed to match 6.5 ph with inflation
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'PV.Fert.needed.match.6.5_inf'] = wheat_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5_inf = median(pv_fert_inf, na.rm = T)) %>% 
+  select('Region_PV_fert_needed_to_match_6_5_inf')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'PV.Fert.needed.match.6.5_inf'] = barley_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%   
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5_inf = median(pv_fert_inf, na.rm = T)) %>% 
+  select('Region_PV_fert_needed_to_match_6_5_inf')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'PV.Fert.needed.match.6.5_inf'] = maize_chg_to_6_5 %>% 
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>% 
+  dplyr::summarize(Region_PV_fert_needed_to_match_6_5_inf = median(pv_fert_inf, na.rm = T)) %>% 
+  select('Region_PV_fert_needed_to_match_6_5_inf' )
+
+# PV of LIME needed to match 6.5 ph with inflation
+h_acidic_oph[h_acidic_oph$Crop == 'Wheat', 'PV.Lime.needed.match.6.5_inf'] = wheat_chg_to_6_5 %>%
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5_inf = median(pv_lime_spatial_inf, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5_inf')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Barley', 'PV.Lime.needed.match.6.5_inf'] = barley_chg_to_6_5  %>%
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5_inf = median(pv_lime_spatial_inf, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5_inf')
+
+h_acidic_oph[h_acidic_oph$Crop == 'Maize', 'PV.Lime.needed.match.6.5_inf'] = maize_chg_to_6_5  %>%
+  filter(PH <= 5.5) %>% group_by(REGION_NAME) %>%
+  dplyr::summarize(Region_PV_lime_needed_to_match_6_5_inf = median(pv_lime_spatial_inf, na.rm = T)) %>%
+  select('Region_PV_lime_needed_to_match_6_5_inf')
+
+
+
+# saveRDS(h_acidic_oph,'../../Ethiopia_Soil_Acidity_2019_Book/Images/h_acidic_oph.rds')
+saveRDS(h_acidic_oph, './Images/h_acidic_oph.rds')
+```
+
+
+
+
+```{r Plots change in yield from ph -> 6.5, fig.width=4, message=FALSE, warning=FALSE, include=FALSE}
+
+cl <- fp_border(color = "black", width = 1)
+
+break_position <- function(x) {
+  z <- data.table::rleidv(x)
+  c(z[-length(z)] != z[-1], FALSE)
+}
+
+
+header_names =  list(pH.Level = "pH Level",
+                     Change.in.OPH = "Yield Change",
+                     OPH.Change = paste0("Yield Change (",yield_units,")"),
+                     median_ph = 'median\npH')
+# Plots
+acidic_oph = acidic_oph %>% arrange(pH.Level,Crop)  
+h_acidic_oph = h_acidic_oph %>% arrange(pH.Level,Crop)
+ 
+
+# merged both
+h_m_acidic_oph = rbind(acidic_oph,h_acidic_oph)
+h_m_acidic_oph = h_m_acidic_oph %>% arrange(pH.Level,Crop)
+
+ft_h_m_acidic_oph = flextable(h_m_acidic_oph%>% filter(Crop!='Maize') %>% 
+                                mutate( OPH.Change = round(qq2ton( OPH.Change),2)) %>%
+                                mutate( median_ph = round( median_ph,1)) %>%
+                 select(-c(Fert.needed.match.6.5,PV.Fert.needed.match.6.5,PV.Lime.needed.match.6.5)) %>% 
+                 select(-c(PV.Fert.needed.match.6.5_inf,PV.Lime.needed.match.6.5_inf)),
+                 col_keys = c('pH.Level','Crop','Region','median_ph','Change.in.OPH','OPH.Change')
+                 ) %>%        
+          # set_formatter_type(fmt_double="%.2f") %>%
+  align(align="center", part = 'all') %>%
+          merge_v(., j = c('pH.Level','Crop') ) %>%
+          compose( ., j = 5,
+                   value = as_paragraph(linerange(value = `Change.in.OPH`, 
+                                                  max = max(`Change.in.OPH`),
+                                                  min=0)), part = "body")%>%
+  hline(i = ~ break_position(pH.Level), border = cl) %>% 
+          set_header_labels( values =  header_names)%>%
+            fix_border_issues()
+
+save_as_image(x = ft_h_m_acidic_oph,path = 'Images/high_mod_acid_region_oph_graph.png',zoom=2)
+
+```
+ 
+
+```{r national PV average calculations, warning=FALSE}
+WHEAT_total_fert_cost = round((WHEAT_Qfert_eq_ph * fertilizer_P_kg),2)
+BARLEY_total_fert_cost = round((BARLEY_Qfert_eq_ph * fertilizer_P_kg),2)
+MAIZE_total_fert_cost = round((MAIZE_Qfert_eq_ph * fertilizer_P_kg),2)
+
+PV_lime = pv(r=discount_rate, n=1, fv = 0, pmt = total_lime_cost, type = 1)
+WHEAT_PV_fert = pv(r=discount_rate, n=pv_years, fv = 0, pmt = WHEAT_total_fert_cost, type = 1)
+BARLEY_PV_fert = pv(r=discount_rate, n=pv_years, fv = 0, pmt = BARLEY_total_fert_cost, type = 1) 
+MAIZE_PV_fert = pv(r=discount_rate, n=pv_years, fv = 0, pmt = MAIZE_total_fert_cost, type = 1)
+
+# with inflation
+PV_lime_inf         = PV_inf(r=discount_rate, n=1, fv = 0, pmt = total_lime_cost, inf=inflation)
+WHEAT_PV_fert_inf   = PV_inf(r=discount_rate, n=pv_years, fv = 0, pmt = WHEAT_total_fert_cost, inf=inflation)
+BARLEY_PV_fert_inf  = PV_inf(r=discount_rate, n=pv_years, fv = 0, pmt = BARLEY_total_fert_cost, inf=inflation) 
+MAIZE_PV_fert_inf   = PV_inf(r=discount_rate, n=pv_years, fv = 0, pmt = MAIZE_total_fert_cost, inf=inflation)
+```
+
+
+```{r region wheat example, warning=FALSE}
+wheat_ph_example = wheat_chg_to_6_5 %>% mutate(ph_diff_from_6_5 = 6-PH) %>% filter(PH > 5.5 & PH <= 6)%>% group_by(REGION_NAME)%>%   dplyr::summarize(Region_ph_diff_from_6_5 = median(ph_diff_from_6_5, na.rm = T))  
+```
+
+## Actual impacts of pH given current conditions
+
+The impacts of lime application will vary, following the spatial patterns of soil pH at the sub-kebele level. As such, there is a great deal of variability within and between regions. Careful lime targeting will be required for an effective intervention. While there are "moderately" (5.5 $<$ pH $\le$ 6) acidic soils throughout our four regions of study, our AgSS sample in Tigray covers no moderately acidic areas and a relatively small number of highly acidic ones. This reflects the general lack of acidic soils in the Tigray regions. Because of this, addressing acidic soils in Tigray will have a smaller overall impact on overall productivity and is reflected in Table `r paste(Table_number)`.
+
+<!-- For instance "moderately" acidic soils (5.5 $<$ pH $\le$ 6) in Amhara, Oromia and SNNP are at the median  `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'Amhara','Region_ph_diff_from_6_5'] %>% unlist()`, `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'Oromia','Region_ph_diff_from_6_5'] %>% unlist()`, `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'SNNP','Region_ph_diff_from_6_5'] %>% unlist()` units below a pH of 6 respectively, meanwhile at the median Tigray's barely qualify as "moderately" acidic as they are only  `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'Tigray','Region_ph_diff_from_6_5']%>% unlist()` units below 6.  Solely by the virtue of this difference, the benefits of mitigating “moderately” acidic soils is likely far more beneficial in, for example, Amhara than in Tigray. To explore some of these differences we break down the expected increase in yields from raising the pH of each sub-kebele to a minimum of 6.5 and summarize by crop and region below: -->
+
+ 
+*Table* `r paste(Table_number)`*: Median yield impact of increasing pH from actual to 6.5 for moderately and highly acidic soils*`r Table_oph_mod_acid =Table_number; Table_number =Table_number+1 `
+
+![](Images/high_mod_acid_region_oph_graph.png){width=500}
+
+
+<!-- As explained earlier, the pH in Amhara, SNNP, and Oromia are at the lower end of “moderately” acidic, therefore gains can be substantial (`r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='Amhara','OPH.Change'],2))`, `r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='SNNP','OPH.Change'],2))`, and `r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='Oromia','OPH.Change'],2))` `r paste(yield_units)` respectively). Meanwhile Tigray's "moderately" acidic soils are extremely close to a pH of 6.5, therefore raising the pH provides virtually no benefit (`r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='Tigray','OPH.Change'],2))` `r paste(yield_units)`) -->
+
+Differences in Table `r Table_oph_mod_acid` are strongly influenced by crop type and how pH varies by region. In highly acidic soils (pH $\le$ 5.5), substantial yield gains are likely obtainable by properly adjusting the pH balance. The median gains for wheat and barley are `r qq2ton(round(h_acidic_oph %>% filter(Crop=='Wheat')%>% select(OPH.Change)%>% unlist() %>% median(),2))` and `r qq2ton(round(h_acidic_oph %>% filter(Crop=='Barley')%>% select(OPH.Change)%>% unlist() %>% median(),2))` (`r paste(yield_units)`), respectively. This uniform yield response across regions can be explained by the overriding influence of a pH significantly at or below a pH of 5.5. 
+
+
+## Economic costs comparison of lime and fertilizer 
+In this section, we can compare the present value of applications of lime and fertilizer for the generalized case (moving pH from 5.5 to 6.5 and holding the delivered lime price at is mean) required to obtain the same yield increase (`r round(qq2ton(WHEAT_PH_oph_spline_OPH),1)` and `r round(qq2ton(BARLEY_PH_oph_spline_OPH),1)` `r paste(yield_units)` for wheat and barley from Table `r paste(Table_ph_OPH)`) for both interventions.
+
+*Table* `r paste(Table_number)`*: Average present value of lime and fertilizer applications required to obtain yield increase equivalent to moving pH from 5.5 to 6.5*`r Table_PV =Table_number; Table_number =Table_number+1 `
+
+```{r current cost table, message=FALSE, warning=FALSE, include=T, results='asis'}
+
+PV_dataframe = data.frame(Crop = c('All','Wheat','Barley','Maize'
+                                   # 'Wheat','Barley','Maize'
+                                   ),
+                          Application=c('Lime','Fertilizer','Fertilizer','Fertilizer'
+                                        # 'Fertilizer','Fertilizer','Fertilizer'
+                                        ),
+                          
+                          `Present Value`= 
+                            c(PV_lime,
+                              # WHEAT_PV_fert,
+                              # BARLEY_PV_fert,
+                              # MAIZE_PV_fert,
+                              # 
+                              WHEAT_PV_fert_inf,
+                              BARLEY_PV_fert_inf,
+                              MAIZE_PV_fert_inf
+                                            ),
+                          
+                          `Expected Yield Increase` =    c('-',
+                                                        # round(WHEAT_PH_oph_spline_OPH,2),
+                                                        # round(BARLEY_PH_oph_spline_OPH,1),
+                                                        # round(MAIZE_PH_oph_spline_OPH,1),
+                                                        
+                                              round(qq2ton(WHEAT_PH_oph_spline_OPH),1),
+                                              round(qq2ton(BARLEY_PH_oph_spline_OPH),1),
+                                              round(qq2ton(MAIZE_PH_oph_spline_OPH),1)
+                                                        ),
+                          
+                          `x cost of lime`= c('1',
+                                              # round(WHEAT_PV_fert/PV_lime,1),
+                                              #         round(BARLEY_PV_fert/PV_lime,1),
+                                              #         round(MAIZE_PV_fert/PV_lime,1),
+                                                  round(WHEAT_PV_fert_inf/PV_lime,1),
+                                                      round(BARLEY_PV_fert_inf/PV_lime,1),
+                                                      round(MAIZE_PV_fert_inf/PV_lime,1)
+                                              )
+                          # `Inflation` =c('no','no','no','no',
+                          #                'yes','yes','yes')
+                          )
+
+names(PV_dataframe)  = c('Crop', 'Treatment', 'Present Value\n(ETB)', 'Yield Increase','x Cost of Lime'#,'Include\nInflation'
+                         )
+#pander(PV_dataframe,big.mark = ',')
+ft = flextable(PV_dataframe %>% filter(Crop!='Maize')) %>% set_formatter_type(fmt_double="%.0f") %>% align(align="center",part='all') #  %>%   merge_v(., j = c('Include\nInflation') )
+
+
+ft = autofit(ft,add_w=0) %>% border_inner_h(border = std_border ,part='body')   %>%      fix_border_issues()
+ft
+
+
+# save_as_image(x = ft, path = 'Images/national_PV_interventions.png')
+
+#save_as_image(x = ft, path = '../../Ethiopia_Soil_Acidity_2019_Book/Images/national_PV_interventions.png')
+
+#saveRDS(PV_dataframe,'../../Ethiopia_Soil_Acidity_2019_Book/Images/PV_dataframe.rds')
+
+
+```
+
+For soils with a pH of 5.5, the average present value of fertilizer use for wheat is `r round(WHEAT_PV_fert_inf/PV_lime_inf,1)` times that of a single application of lime (Table `r Table_PV`). Meanwhile the present value of a comparable fertilizer application for barley is `r round(BARLEY_PV_fert_inf/PV_lime_inf,1)` times that of lime, or in other words, for barley fertilizer is `r (round(BARLEY_PV_fert_inf/PV_lime_inf,1)-1)*100`% more expensive than lime. As such, lime can likely provide substantial savings particularly for wheat farmers but also barley. 
+
+
+<!-- Additionally, the cost savings of lime are large relative to per capita national income (GNI), which in 2016 was `r round(GNI_2016_ETB)*-1`ETB or $`r GNI_2016*-1` [@wbGNI]. As such, the cost of fertilizer for wheat was `r round((WHEAT_PV_fert_inf-PV_lime)/GNI_2016_ETB,2) *-100`% of GNI per capita, and `r round((BARLEY_PV_fert_inf-PV_lime)/GNI_2016_ETB,2) *-100`% for barley. These benefits however are unevenly distributed, following spatial patterns of soils and transportation costs across regions.  -->
+
+Following the approach outlined in the methods section we now calculate a spatially explicit cost comparison for both lime and fertilizer. Below, spatially explicit estimates of fertilizer and lime costs are aggregated by acidity class, region, and crop, reflecting the median regional soil properties and input costs.
+
+
+```{r Plots cost fertilizer needed to match ph -> 6.5, message=FALSE, warning=FALSE, include=FALSE} 
+
+header_names =  list(
+  pH.Level = "pH Level",
+  Fert.needed.match.6.5_inf = "Fertilizer Needed",
+  Fert_need_kg = "Fertilizer Needed (kg/ha)" ,
+  PV.Fert.needed.match.6.5_inf = 'PV of Fert Cost\n(ETB)',
+  xcostoflime = 'x cost of lime',
+  # xcostoflimeinflation = 'x cost of lime\nw. inflation'
+  xcostoflimeinflation = 'x cost of lime',
+  median_ph = 'median\npH'
+
+)
+
+
+ft = 
+  flextable(
+    acidic_oph %>% filter(Crop!='Maize') %>%
+      select(-contains('OPH')) %>%
+      mutate(Fert_need_kg = Fert.needed.match.6.5) %>%
+      select(-PV.Fert.needed.match.6.5,  PV.Fert.needed.match.6.5)   %>%
+      mutate(`xcostoflime`=  round(PV.Fert.needed.match.6.5/PV.Lime.needed.match.6.5,2))   %>%
+      mutate(`xcostoflimeinflation`=  round(PV.Fert.needed.match.6.5_inf/PV.Lime.needed.match.6.5_inf,2))   %>%
+      select(-PV.Lime.needed.match.6.5),
+      col_keys = c('pH.Level','Crop','Region','Fert.needed.match.6.5_inf','PV.Fert.needed.match.6.5_inf',#'xcostoflime',
+                   'xcostoflimeinflation')
+  ) %>%
+  set_formatter_type(fmt_double = "%.1f") %>%
+  align(align = "center", part = 'all') %>%
+  merge_v(., j = c('pH.Level', 'Crop')) %>%
+  compose(.,
+          j = 5,
+          value = as_paragraph(linerange(
+            value = `Fert.needed.match.6.5`,
+            max = max(`Fert.needed.match.6.5`),
+            min = 0
+          )),
+          part = "body") %>%
+  hline(., part = "all") %>%
+  set_header_labels(values =  header_names) %>%
+  fix_border_issues()
+
+ft
+save_as_image(x =  ft, path = 'Images/acid_region_fert_graph.png')
+
+
+ft = 
+  flextable(
+    h_acidic_oph %>% filter(Crop!='Maize') %>%
+      select(-contains('OPH')) %>%
+      mutate(Fert_need_kg = Fert.needed.match.6.5) %>%
+      select(-PV.Fert.needed.match.6.5,  PV.Fert.needed.match.6.5)   %>%
+      mutate(`xcostoflime`=  round(PV.Fert.needed.match.6.5/PV.Lime.needed.match.6.5,2))   %>%
+      mutate(`xcostoflimeinflation`=  round(PV.Fert.needed.match.6.5_inf/PV.Lime.needed.match.6.5_inf,2))   %>%
+      select(-PV.Lime.needed.match.6.5),
+      col_keys = c('pH.Level','Crop','Region','Fert.needed.match.6.5_inf','PV.Fert.needed.match.6.5_inf',#'xcostoflime',
+                   'xcostoflimeinflation')
+  ) %>%
+  set_formatter_type(fmt_double = "%.1f") %>%
+  align(align = "center", part = 'all') %>%
+  merge_v(., j = c('pH.Level', 'Crop')) %>%
+  compose(.,
+          j = 5,
+          value = as_paragraph(linerange(
+            value = `Fert.needed.match.6.5`,
+            max = max(`Fert.needed.match.6.5`),
+            min = 0
+          )),
+          part = "body") %>%
+  hline(., part = "all") %>%
+  set_header_labels(values =  header_names)%>%
+  fix_border_issues()
+
+ft
+save_as_image(x =  ft, path = 'Images/high_acid_region_fert_graph.png')
+```
+
+
+*Table* `r paste(Table_number)`*: Median regional fertilizer requirements to match lime application (minimum pH of 6.5) for acidic soils*`r Table_PV_mild =Table_number; Table_number =Table_number+1 `
+
+![](Images/acid_region_fert_graph.png){width=500}
+```{r cost savings}
+ X_cost_above_lime =acidic_oph %>% filter(Crop!='Maize')%>% filter(Region!='Tigray') %>%
+      mutate(`fert_less_lime`=  round(PV.Fert.needed.match.6.5_inf-PV.Lime.needed.match.6.5_inf,2)) %>%
+  group_by(Crop) %>% summarise(fert_less_lime = mean(fert_less_lime) )
+
+
+acid_cost_savings_barley = round(X_cost_above_lime %>%filter(Crop=='Barley') %>% select('fert_less_lime') %$% fert_less_lime  )*-1
+acid_cost_savings_wheat = round(X_cost_above_lime %>%filter(Crop=='Wheat') %>% select('fert_less_lime') %$% fert_less_lime  )*-1
+acid_cost_savings_wheat_GNI = acid_cost_savings_wheat/GNI_2016_ETB
+acid_cost_savings_barley_GNI = acid_cost_savings_barley/GNI_2016_ETB
+
+acid_lime_cost_savings = data.frame(wheat=acid_cost_savings_wheat_GNI,barley = acid_cost_savings_barley_GNI)
+
+```
+ 
+Table `r paste(Table_PV_mild)` demonstrates that for even moderately acidic soils, from an economic standpoint, the annual application of fertilizer is more costly than an application of lime in all regions and both crops. Tigray is excluded because no moderate pH sub-kebeles were in the AgSS sample.  In the case of wheat, the application of lime is significantly cheaper than the use of fertilizer. Overall these estimates imply a cost savings of, excluding Tigray, `r acid_cost_savings_wheat` ETB and `r acid_cost_savings_barley` ETB per hectare of limed land, for wheat and barley respectively. Even in moderately acidic soils these values are a large portion of one-year agricultural income of `r round(GNI_2016_ETB)`ETB or $`r round(GNI_2016)` in 2016 [@ACCS]. As such, the cost savings of lime for wheat was `r round(acid_lime_cost_savings['wheat'],2) *100` % of one-year agricultural income, and `r round(acid_lime_cost_savings['barley'],2) *100`% for barley spread over a five-year period. These benefits however are unevenly distributed, following spatial patterns of soils and transportation costs across regions. 
+
+ 
+*Table* `r paste(Table_number)`*: Median regional fertilizer requirements to match lime application (minimum pH of 6.5) for highly acidic soils*`r Table_PV_region_high_acid =Table_number; Table_number =Table_number+1 `
+
+![](Images/high_acid_region_fert_graph.png){width=500}
+
+
+
+```{r cost savings high acid}
+mean_hacid_multiple_wheat = round(h_acidic_oph %>% filter(Crop=='Wheat') %>% mutate(pv=PV.Fert.needed.match.6.5_inf/PV.Lime.needed.match.6.5_inf) %>% select(pv) %>% unlist()%>% mean(rm.na=T)  ,1)
+
+max_hacid_multiple_wheat= round(h_acidic_oph %>% filter(Crop=='Wheat') %>%  mutate(pv=PV.Fert.needed.match.6.5_inf/PV.Lime.needed.match.6.5_inf) %>% select(pv) %>% unlist()%>% max(rm.na=T)  ,1)
+
+
+h_X_cost_above_lime =h_acidic_oph %>% filter(Crop!='Maize')%>% filter(Region!='Tigray') %>%
+    mutate(`fert_less_lime`=  round(PV.Fert.needed.match.6.5_inf-PV.Lime.needed.match.6.5_inf,2)) %>%
+  group_by(Crop) %>% summarise(fert_less_lime = mean(fert_less_lime) )
+
+hacid_cost_savings_barley = round(h_X_cost_above_lime %>%filter(Crop=='Barley') %>% select('fert_less_lime') %$% fert_less_lime)*-1
+hacid_cost_savings_wheat = round(h_X_cost_above_lime %>%filter(Crop=='Wheat') %>% select('fert_less_lime') %$% fert_less_lime)*-1
+hacid_cost_savings_wheat_GNI = hacid_cost_savings_wheat/GNI_2016_ETB
+hacid_cost_savings_barley_GNI = hacid_cost_savings_barley/GNI_2016_ETB
+
+hacid_lime_cost_savings = data.frame(wheat=hacid_cost_savings_wheat_GNI,barley = hacid_cost_savings_barley_GNI)
+saveRDS(hacid_lime_cost_savings,'./Images/hacid_lime_cost_savings.rds')
+
+
+```
+
+For highly acidic soils in Table `r paste(Table_PV_region_high_acid)`, the economic gains of lime applications become clear, especially for wheat. Across all growing regions, the economic benefit of lime application for wheat in highly acidic soils is `r round(mean_hacid_multiple_wheat,1)` times that of fertilizer applications but reaches as high as `r round(max_hacid_multiple_wheat,1)`. For wheat and barely respectively, this implies a cost savings of, excluding Tigray, `r hacid_cost_savings_wheat` and `r hacid_cost_savings_barley` ETB per hectare of limed land, or `r round(hacid_cost_savings_wheat_GNI*100)`% and `r round(hacid_cost_savings_barley_GNI*100)`% of one-year agricultural income spread over a five-year period. We can also look at this graphically on a map shown below:
+
+*Figure* `r paste(Figure_number)`*: Present value ratios of fertilizer relative to lime application for wheat and barley excluding inflation*`r  Figure_number =Figure_number+1 `
+
+```{r map x cost of lime,   message=FALSE, warning=FALSE, cache=T, include=F}
+
+for (crop in c('wheat', 'barley')) {
+  
+  # get crop data
+  crop_ea_join = get(paste(crop, '_EA_join', sep = ''))
+  
+  # LIMIT TO ONLY ACID SOIL AREAS, OTHERWISE MANY AREAS ARE 0 BC THEY ARE NOT ACIDIC
+  # crop_ea_join = crop_ea_join[crop_ea_join$PH < 6.5,]
+  
+  # add spatial lime price all_EAs_PH
+  
+  # Calculate updating ph to 6.5 on actual data (given current fertilizer applications too)
+  lm = get(paste(crop, '_lm', sep = ''))
+  lm_pred =  predict(lm, newdata = crop_ea_join)
+  
+  lm_vars_min_6_5 = get_all_vars(get(paste(crop, '_lm', sep = '')), crop_ea_join)
+  lm_vars_min_6_5$PH[lm_vars_min_6_5$PH < 6.5] = 6.5   # Set to ph to 6.5 and repredict
+  
+  lm_pred_min_6_5 = predict(lm , newdata = lm_vars_min_6_5)
+  
+  # get actual fertilizers values too
+  name = paste(toupper(crop), '_FERT_PER_AREA_w', sep = '')
+  fert = crop_ea_join %>% ungroup() %>% select(name)
+  
+  # find changed yield if was below pH 6.5
+  crop_chg_to_6_5 =      data.frame(
+    EACODE = crop_ea_join$EACODE,
+    lm_pred_6_5_less_actual = (lm_pred_min_6_5 - lm_pred),
+    PH = crop_ea_join$PH,
+    fert = fert,
+    lime_to_6_5 = crop_ea_join$lime_to_6_5,
+    lime_price_spatial = crop_ea_join$lime_price_spatial,
+    REGION_NAME = crop_ea_join$REGION_NAME,
+    ZONECODE = crop_ea_join$ZONECODE,
+    WOREDACODE = crop_ea_join$WOREDACODE
+  )
+  
+  # estimate the amount of fertilizer needed to move from actual oph to ph => 6.5, by using wheat_ggframe_fert
+  crop_ggframe_fert = get(paste(crop, '_ggframe_fert', sep = ''))
+  crop_ggframe_fert = crop_ggframe_fert %>% 
+                            mutate(OPH_gain_fert = cumsum(c( 0, diff(crop_ggframe_fert$fert_spline))))
+  
+  # find the amount of fertilizer needed to match the 6.5 ph
+  crop_chg_to_6_5 = crop_chg_to_6_5 %>% rowwise() %>%
+        mutate(fert_needed_to_match_6_5 =
+            crop_ggframe_fert$fert_grid[closest_loc(lm_pred_6_5_less_actual, crop_ggframe_fert$OPH_gain_fert)]) %>%
+            # calculate PV of fertilizer costs
+            mutate( pv_fert = pv( r = discount_rate, n = pv_years, fv = 0, 
+                            pmt = fert_needed_to_match_6_5 * fertilizer_P_kg,type = 1) 
+            ) %>% 
+           mutate( pv_fert_inf = PV_inf( r = discount_rate, n = pv_years, fv = 0, 
+                            pmt = fert_needed_to_match_6_5 * fertilizer_P_kg, inf=inflation) 
+            ) %>% 
+            ### calculate PV of lime costs  ########## 
+            mutate( pv_lime_spatial = pv( r = discount_rate, n = 1, fv = 0, 
+                            pmt = lime_to_6_5 * lime_price_spatial,type = 1)
+            ) %>%
+            mutate( pv_lime_spatial_inf = PV_inf( r = discount_rate, n = 1, fv = 0, 
+                            pmt = lime_to_6_5 * lime_price_spatial,  inf=inflation)
+            ) %>%
+            mutate(`x cost of lime`=  round(pv_fert/pv_lime_spatial,2))   %>%
+            mutate(`x cost of lime inf`=  round(pv_fert_inf/pv_lime_spatial_inf,2))   
+
+  
+  
+  
+  x_cost =  crop_chg_to_6_5 %>% group_by(WOREDACODE) %>%
+      dplyr::summarize(`x cost of lime` = mean(`x cost of lime`, na.rm=TRUE))
+  
+  all_EAs = read_sf( '../Data/EA Shapefile/AGSS_EnumerationAreas_WGS_codes.geojson' )
+  all_EAs$WOREDACODE = all_EAs$W_CODE
+  woredas = all_EAs%>%group_by(WOREDACODE) %>% dplyr::summarize(WOREDACODE = first(WOREDACODE))
+  x_cost = inner_join(woredas , x_cost  )
+  
+  if(crop == 'wheat'){high_color='purple'}else{high_color='darkgreen'}
+
+  h = ggplot() + geom_sf(data=st_as_sf(country),aes(),color='grey70',size=0.5,fill='grey90', size=1)+
+    geom_sf(data=x_cost  ,aes(color=`x cost of lime`), size=1)+
+    scale_colour_gradient2(low='white',mid='white',high=high_color, name='x cost of lime' )+
+    geom_sf(data=st_as_sf(country),aes(),color='grey70',size=0.5,fill=NA)+
+    coord_sf(xlim=c(-90657.53,966145.),ylim=c(418602.3,1607672.7)) +
+    theme(axis.text = element_blank(),
+        axis.ticks = element_blank())
+  temp_figure = Figure_number
+  # ggsave(h, filename = paste0("../Scripts/Images/map_xcostoflime_",crop,".png"),width=5,bg='#ffffff')  
+  # ggsave(h, filename = paste0("Images/Figure",temp_figure,"_map_xcostoflime_",crop,".png"),width = 5, bg = '#ffffff')
+  temp_figure = temp_figure+1
+  st_write(x_cost %>% select(WOREDACODE,'x cost of lime'),paste0('../Data/R_images/x_cost_',crop,'.GPKG'),delete_dsn=T)
+
+  h= h + labs(title = capitalize(crop))
+  assign(paste(crop,'pv_map',sep = '_'),h,envir = globalenv())
+}
+
+joint_plot = grid.arrange(wheat_pv_map, barley_pv_map, ncol=1)
+ggsave(joint_plot, filename = paste0("Images/Figure",Figure_number,"_map_xcostoflime_wheatbarley.png"),width = 5, bg = '#ffffff')
+
+```
+
+```{r fig.width=9, message=FALSE, warning=FALSE}
+
+grid.arrange(wheat_pv_map, barley_pv_map, ncol=1,widths =)
+
+```
+
+
+Figure `r paste(Figure_number)` maps the present value ratios of fertilizer and lime interventions across the regions at the sub-kebele level. A value of three indicates that annual fertilizer applications are three times more expensive than a single lime application over a `r paste(english(pv_years))` period.  Areas in grey indicate that fertilizer is likely more effective, largely due to the fact that soils are not acidic. According to our data, the greatest cost ratios of applying lime are located in northern SNNP and western areas of Amhara and Oromia, largely following the patterns to highly acidic soils. We also present a web map version of the same data at (https://rpubs.com/mmann1123/costbenefit).
+
+
+
+
+```{r merge for webmap, eval=FALSE, warning=FALSE, include=FALSE}
+
+x_cost_wheat =  read_sf(paste0('../Data/R_images/x_cost_wheat.GPKG')) %>% rename(x.cost.of.lime.wheat = x.cost.of.lime)
+x_cost_barley =  read_sf(paste0('../Data/R_images/x_cost_barley.GPKG')) %>% rename(x.cost.of.lime.barley = x.cost.of.lime)%>% select(-geom)
+st_geometry(x_cost_barley) <- NULL
+
+x_cost = inner_join(x_cost_wheat, x_cost_barley )
+
+x_cost$centroids <- x_cost %>%
+  st_centroid() %>% 
+  # this is the crs from d, which has no EPSG code:
+  st_transform(., '+proj=longlat +ellps=GRS80 +no_defs') %>%
+  # since you want the centroids in a second geometry col:
+  st_geometry()  
+st_geometry(x_cost) = x_cost$centroids
+
+# x_cost$x_cost_of_lime = x_cost[,'x cost of lime']
+
+# extract lat lon 
+x_cost <- x_cost %>% 
+    mutate(lat = unlist(map(x_cost$centroids,1)),
+           long = unlist(map(x_cost$centroids,2)))
+
+# remove sf properties 
+x_cost_df = x_cost
+x_cost_df = x_cost_df %>% select(-geom)
+st_geometry(x_cost_df) <- NULL
+
+pal <- colorNumeric(
+  palette = "Blues",
+  domain = x_cost_df[,'x.cost.of.lime.wheat'])
+
+leaflet(x_cost) %>%
+  addTiles() %>% 
+  addCircles(color =~pal(x_cost_df$x.cost.of.lime.wheat),   radius = 5, group = "Wheat",opacity=1 )    %>%
+  addCircles(color =~pal(x_cost_df$x.cost.of.lime.barley),   radius = 5, group = "Barley",opacity=1 )    %>%
+  addLegend("bottomright", 
+            pal = pal, 
+            values = ~x_cost_df$x.cost.of.lime.wheat,
+            title = "fert/lime cost ratio",
+            labFormat = labelFormat(prefix = "x"),
+            opacity = 1,
+            na.label = "Fertilizer Better",
+  ) %>%  
+  addLayersControl(baseGroups = c("Wheat", 'Barley'), options=c(collapsed=F)  )
+
+```
+
+# Conclusion
+<!-- In this study, we have estimated the economic and agricultural viability of soil remediation, through the application of lime, using data-driven methods. We utilize observations of agricultural yields for wheat and barley from the AgSS survey for the 2010-2016 growing seasons and control for a variety of confounding effects such as weather, other soil properties, management practices, and government interventions.  -->
+
+Acid soils are a significant and growing problem for agricultural productivity in Ethiopia. Restoring soil pH to optimal ranges for acid intolerant crops, like wheat and barley, could provide a significant boost to productivity at a cost lower than fertilizer. Our results indicate that moderately and highly acidic soils significantly undermine yields for major cereal crops, and estimate the impact of moving pH from 5.5 to 6.5, through a lime remediation strategy, could increase yields by `r round(ph_oph[1,3])`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. Moreover, using spatially explicit soil and input price data we find evidence on a region by region basis for the economic viability of soil remediation through the application of lime, especially in highly acidic areas. At the regional level, taking into account transportation costs, the benefits of lime applications for wheat are as much as `r round(max_hacid_multiple_wheat,1)` times that of fertilizer, or `r round(mean_hacid_multiple_wheat,1)` across all major growing regions. In highly acidic soils this implies a cost savings of, excluding the region of Tigray, `r hacid_cost_savings_wheat`  ETB and `r hacid_cost_savings_barley` ETB per hectare of limed land, for wheat and barley respectively. Moreover these savings are a substantial proportion of the one-year agricultural income per hectare, (`r round(hacid_cost_savings_wheat_GNI*100)`% and `r round(hacid_cost_savings_barley_GNI*100)`% for wheat and barley). Taken as a whole there is substantial evidence that soil remediation can increase yields and economic outcomes for farmers across its acidic regions. Additionally, although not explicitly modeled here, it is likely that the application of lime could also allow farmers to reclaim abandoned farmland, thereby substantially increasing total production in acidic areas.
+
+The evidence provided here outlines the potential economic benefits of Ethiopia implementing a similar strategy to Brazil’s, whereby lime was applied acid soil reclamation in their Cerrado region [@NOVUS2011;@borlaug2002feeding]. The Brazilian initiative brought together government resources, the national research institute, and international technical and financial aid to carry out an intensive rehabilitation initiative that resulted in the reclamation of 60 million ha of farmland and created a global production source for wheat. We believe that the Brazilian experience provides an important international template in the possibilities of acid soils management and envision a similar strategy that will have substantially positive impacts for Ethiopia. In addition, given several other African countries growing interest in the impacts of soil acidity, this prototype could serve as a foundation for other countries. The goal is enhanced production by directly addressing the economics of soil health for improving farmer’s livelihoods in Ethiopia and other African countries.
+
+An important caveat to this research is that the data is aggregated at the sub-kebele level, and our model largely exploits spatial variability in yields and soil properties rather than through controlled trials or farmer experience. As such, the results should be viewed as indicative rather than specific to individual farm plots. At the plot-level, given the results of small-scale trials and these results, we believe that productivity enhancements from lime would likely exhibit both greater variation and higher average yields. However, farm level trials would be needed to confirm this hypothesis.
+
+Overall, our findings provide important guidance for the targeting of profitable lime interventions and the development of the lime value chain in Ethiopia. Moreover, the analytic approach we describe may be used by other countries in the region to address soil acidity problems. While our cost comparison is focused on the use of lime, there are other agronomic avenues for raising pH which may also be viable, and which may be more cost effective than traditional approaches to liming, depending upon the technologies and the conditions in which they are applied. Our analytic approach is fundamentally agnostic to the choice of technology. If and when data on alternative technological approaches to acid soils remediation are available, these investment options could be incorporated into this framework. 
+
+Finally, the benefits of lime application extend beyond simple yield gains and are worth emphasizing. For example, the benefits of lime application can include: increased Ca Mg and P supply, reduced mineral toxicity, stimulation of microbial activity, avoiding induced acidification through fertilizer application, and more efficient uptake of N and availability, among others. Therefore we recommend targeted lime application as part of a greater policy of integrated soil fertility management that includes fertilizer as well as other potential inputs and farm management strategies.
+
+**Acknowledgments:** This research was generously funded by CIMMYT as part of the TAMASA project. 
+ 
+\newpage 
+
+# Supplemental Material
+# Appendix A – Data {-}
+
+**AgSS**
+
+The AgSS is a large-scale survey tasked with measuring agricultural production in Ethiopia at the zonal level.7 Each year the AgSS interviews approximately 45,000 farmers on a range of farm management questions covering some basic demographics of the household as well as a range of questions concerning planting, harvesting and selling at the plot level. Typically, about 20 farm households are randomly sampled from village-level areas of approximately 200 households (the sub-kebele level). From this sampling frame, a random selection of about 2,200 sub-kebeles are chosen as a representative sub-sample for zonal level agricultural production. Population weights are then applied to project agricultural production at the zonal level. For this study, we construct longitudinal data over the six crop seasons and are able to maintain 75% of all households over the 2010-2016 period at the sub-kebele level. 
+
+While this study collected data on the five principal Ethiopian field crops (teff, wheat, maize, barley, sorghum), we focus here on wheat, and barley because of their importance in Ethiopia’s food system, as well as their sensitivity to soil acidity. The principal unit of analysis is the sub-kebele and all relevant CSA data is aggregated to this level. In our analysis, we amalgamate the production of all 20 households in a sub-kebele as a single representative farmer. This was done for a variety of reasons including the fragmented plot farming system common in Ethiopia as well as CSA data collection methodology. More specifically, CSA data collection methodology relies on crop cuts to estimate productivity at the local level. Depending on the actual number of farmers growing the specific crop, CSA collects up to five different individual farmer crop cuts, averages the yields, and projects this figure onto all plot areas for that crop in the sub-kebele. 
+
+
+**EthioSIS**
+
+EthioSIS is a national soil survey and mapping exercise conducted by the Government of Ethiopia, and competed in 2019.  The objective was to create both a national and woreda-level mapping grid that identifies soil fertility characteristics of agricultural lands for the purpose of assisting in fertilizer advisory service to farmers. The project combined field observation, soil data collection and remote sensing into a comprehensive soil inventory. Over 100,000 soil samples were collected using pre-defined, systematically stratified sampling points of topsoil (0 -20 cm) vs (0-50cm), to determine soil fertility at a 250 m resolution.  The specific process included using a sampling frame based on geo-referenced gridded locations, lab analysis of samples  and predictive models of soil properties as a function of spatial covariates.   
+
+**TerraClimate**
+
+TerraClimate provides monthly estimates of surface water balance at 1/24th of a degree (~4km) spatial resolution.8 Measures of water balance are particularly relevant to this study because it provides an estimate of water available to plants by looking at the balance between water gained from precipitation and runoff, and that lost to evaporative demand. The amount of water moving through a system is driven by two forces: (1) the supply of water through rainfall and (2) the demand for water, driven primarily by energy from the sun, which allows for evaporation and movement of water through plants but is also affected by wind, vapor pressure, and soil properties. Here we use a measure called the Palmer Drought Severity Index which is derived as a measure of the balance between available water due precipitation and potential evapotranspiration [@abatzoglou2014tracking]. 
+
+**PSNP & AGP**
+
+The AGP intervention is a large-scale (83 initial woredas) project, funded by the World Bank, designed to increase productivity and marketization within high potential agricultural areas. Intervention woredas were obtained from the Ethiopia Strategy and Support Program II’s baseline report [@berhane2013agri].  Ethiopia’s PSNP is an internationally recognized safety net program that provides a variety of social programs to assist poorer households.  There are approximately 200 woredas designated as PSNP woredas and the program was initiated in 2005 [@gilligan2007eth]. 
+
+<!-- ## Lime Requirements {-} -->
+
+
+```{r saturation_ph ,  message=FALSE, warning=FALSE, include=F}
+saturationtable = read.csv("../Data/basesaturation_ph.csv")
+flextable(saturationtable) %>%   border_inner_h(border = std_border ,part='body') %>% autofit() 
+
+```
+
+**Intermediate Products**
+
+*Figure A1*: *Estimate of average lime required per hectare to amend soil pH at multiple pH levels*`r lime_req_fig_num = Figure_number; Figure_number =Figure_number+1 `
+
+```{r lime estimates based on ph and soc from james, eval=T, fig.width=5, include=T}
+model <- lm(lime_to_6_5~ph, data=lime_mt_EA[lime_mt_EA$ph <6.5,])
+
+c = ggplot(data = lime_mt_EA[lime_mt_EA$ph <6.5,], aes(x=ph, y=lime_to_6_5))+geom_point(alpha=0.3)+ geom_smooth(method = 'lm',se=T)+
+  coord_cartesian(xlim=c(5,6.5), ylim=c(-0.1,5.5))+
+  xlab('pH')+ylab(paste0('Lime required\n(',yield_units,')'))+ 
+  annotate("text", x = 6.2, y = 4, label = paste(round(model$coefficients[1],2),"+",round(model$coefficients[2],2),'pH\nR2 =', round(summary(model)$adj.r.squared,2)  ))
+
+ggsave(c, filename = paste0("Images/Figure_A1_lime_ph_plot_.png"),width = 5, bg = '#ffffff')
+c
+```
+
+Estimates of delivered input distributors lime costs are shown in a Figure in the below.
+
+\newpage
+
+*Figure A2*: *Map of estimated input distributors prices of lime* `r  Figure_number =Figure_number+1`
+
+```{r Plot lime cost, fig.width=6, message=FALSE, warning=FALSE, include=T, cache=T}
+lime_price_raster =  raster('../Data/prices/limecost_mkt.tif')
+
+lime_price_sp_df <- as(lime_price_raster, "SpatialPixelsDataFrame")
+lime_price_sp_df <- as.data.frame(lime_price_sp_df)
+colnames(lime_price_sp_df) <- c("value", "x", "y")
+d = ggplot() + geom_tile(data=lime_price_sp_df, aes(x=x, y=y,fill=value))+
+  scale_fill_gradient2( low = 'blue',mid='white', high = 'red',midpoint = 2100,'Lime Farm\nGate Price\n(birr)' )+
+  xlab('')+ylab('')+theme(axis.text = element_blank(),
+        axis.ticks = element_blank())
+
+ggsave(d, filename = paste0("Images/Figure_A2_lime_tran_cost.png"),width = 5, bg = '#ffffff')
+
+```
+![](Images/Figure_A2_lime_tran_cost.png)
+
+
+# Appendix B - Results {-}
+**Yield gains from soil remediation**
+\setcounter{table}{0}
+
+We can also look at the spatial distribution of these gains in productivity from the application of lime. Below we can see the impact of increasing pH to a minimum of 6.5 for both barley and wheat.  
+
+```{r ethioSIS global OPH map, eval=T, fig.width=5, include=T, cache=T}
+# create map of yield gains from raising the pH to 6.5 
+ethsis = read.dta13('../Data/EthioSIS/EthioSIS_EA_Cleaned_April_4_2019.dta')
+ethsis = ethsis %>% filter(!is.na(x_coord) & !is.na(y_coord))
+ethsis$EACODE = as.numeric(paste0(as.character(ethsis$RK_CODE_ES),substring(ethsis$EA_NAME,5,6)))
+
+ethsis = ethsis %>% select(c('x_coord','y_coord','EACODE'))
+ethsis_pnt = st_as_sf(x = ethsis, 
+                        coords = c("x_coord", "y_coord"),
+                        crs = "+proj=utm +zone=37 +datum=WGS84 +units=m +no_defs")
+ 
+# get boundary for plot
+country = read_sf('../Data/AdminBoundaries/ETH_adm1.shp')
+country = as_Spatial(st_transform(country,32637))
+
+
+for (crop in c('wheat', 'barley' )) {
+  # Calculate updating ph to 6.5 on actual data (givEN current fertilizer applications too)
+  lm = get(paste(crop, '_lm', sep = ''))
+  crop_ea_join = get(paste(crop, '_EA_join', sep = ''))
+  
+  # make yield estimate based on current conditions
+  lm_pred =  predict(lm, newdata = crop_ea_join)
+  
+  # make estimate of lime requirements to bring to 6.5    
+  crop_ea_join$Lime_required = crop_ea_join$lime_to_6_5   # this should be correct 
+  
+  # Lime requirement for EA with ph > 6.5 si zero
+  crop_ea_join$Lime_required[crop_ea_join$PH >= 6.5] = 0 
+  
+  Lime_required = 
+    crop_ea_join %>%
+      group_by(WOREDACODE) %>%
+      dplyr::summarize(Mean_Lime_required = mean(Lime_required, na.rm=TRUE))
+  
+  all_EAs = read_sf( '../Data/EA Shapefile/AGSS_EnumerationAreas_WGS_codes.geojson' )
+  all_EAs$WOREDACODE = all_EAs$W_CODE
+  Lime_required = unique(inner_join(Lime_required , all_EAs %>%  select(WOREDACODE, W_NAME)  )%>% select(-c(geometry)))
+  
+  
+  # write out lime requirements
+  write.csv(Lime_required,paste0('../Data/',crop,'Lime_required_Woreda_Code.csv'))
+  
+  # yeilds with minimum of 6.5ph 
+  lm_vars_min_6_5 = get_all_vars(get(paste(crop, '_lm', sep = '')), crop_ea_join)
+  lm_vars_min_6_5$PH[lm_vars_min_6_5$PH < 6.5] = 6.5
+  lm_pred_min_6_5 = predict(lm , newdata = lm_vars_min_6_5)
+  
+  # get fert values too
+  name = paste(toupper(crop), '_FERT_PER_AREA_w', sep = '')
+  fert = crop_ea_join %>% ungroup() %>% select(name)
+  
+  # find changed yield if was below pH 6.5
+  crop_chg_to_6_5 =  data.frame( EACODE =  crop_ea_join$EACODE,
+                        lm_pred_6_5_less_actual = (lm_pred_min_6_5 - lm_pred),
+                        PH = crop_ea_join$PH,
+                        fert = fert,
+                        REGION_NAME = crop_ea_join$REGION_NAME,
+                        ZONECODE = crop_ea_join$ZONECODE
+                       )
+  
+  ph_join = inner_join(ethsis_pnt,crop_chg_to_6_5,by='EACODE')
+  
+  # draws bottom values last 
+  ph_join = ph_join[order(ph_join$lm_pred_6_5_less_actual,decreasing=F),]
+  
+  if(crop == 'wheat'){high_color='purple'}else{high_color='darkgreen'}
+  
+  a= ggplot() + geom_sf(data=st_as_sf(country),aes(),color='grey70',size=1,fill='grey90')+
+    geom_sf(data=ph_join  ,aes(color=qq2ton(lm_pred_6_5_less_actual)))+
+    scale_colour_gradient2(low='white',mid='white',high=high_color, name=paste0('Yield Gain (',yield_units,')') )+
+    geom_sf(data=st_as_sf(country),aes(),color='grey70',size=1,fill=NA)+
+    coord_sf(xlim=c(-90657.53,966145.),ylim=c(418602.3,1607672.7)) +
+    theme(axis.text = element_blank(),
+        axis.ticks = element_blank())
+  
+  saveRDS(ph_join, paste0("../Scripts/Images/map_ophgain_",crop,".rds"))
+  
+  # save rds for bookdown
+  #saveRDS(ph_join, paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/map_ophgain_",crop,".rds"))
+
+  ggsave(paste0("../Scripts/Images/map_ophgain_",crop,".png"),width=6,bg='#ffffff')  
+}  
+  
+
+
+```
+
+\newpage
+
+*Figure B1*: *Change in wheat yields obtained by increasing pH to a minimum of 6.5*`r   Figure_number =Figure_number+1 `
+
+![](Images/map_ophgain_wheat.png){width=500}
+
+*Figure B2*: *Change in barley yields obtained by increasing pH to a minimum of 6.5*`r   Figure_number =Figure_number+1 `
+
+![](Images/map_ophgain_barley.png){width=500}
+
+```{r eval=T, include=T, cache=T}
+
+
+# choose polynomial order 
+wheat_poly_results = list()
+order= list()
+variable = c('PH','WHEAT_FERT_PER_AREA_w','CEC','SOC','SND','pdsi','elevation',
+             'WHEAT_EXT_AREA_p','WHEAT_IMSEED_p','WHEAT_IRG_AREA_p',
+             'WHEAT_DAMAGE_AREA_p','dist_pp50k')
+for(var in variable){
+    lm_list=list()
+      for(d in c(1,2,3,4,5)){
+        yX = 'WHEAT_OPH_w ~ poly(PH,1) + poly(WHEAT_FERT_PER_AREA_w,1)   +
+              poly(CEC,1)  +  poly(SOC,1) +  poly(SND,1) + poly(pdsi,1)  +
+              poly(elevation,1) +  poly(WHEAT_EXT_AREA_p,1)   + poly(WHEAT_IMSEED_p,1)  +
+              poly(WHEAT_IRG_AREA_p,1) +  poly(WHEAT_DAMAGE_AREA_p,1) +
+              poly(dist_pp50k,1) +
+              factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+factor(AGP_Dum)
+              + factor(REGIONCODE)'
+        
+        lm_list[[d]]= lm(yX %>% 
+                           str_replace(pattern =paste0(var,',1'),  
+                                  replace=paste0(var,',',as.character(d))),
+                                  data=wheat_EA_join)
+      }
+    result = anova(lm_list[[1]],lm_list[[2]],lm_list[[3]],lm_list[[4]],lm_list[[5]])
+    w_sig = min(which(result$`Pr(>F)`>0.05))
+    w_sig = ifelse(sum(c(result$`Pr(>F)`<0.05)[2:5])==4, 5, w_sig) #if all sig
+    order[var]= max(c(1,w_sig-1),rm.na=T)
+    wheat_poly_results[[var]] = c(result$`Pr(>F)`)
+}
+
+
+wheat_form_sens0 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + 
+      poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens0 <- lm(wheat_form_sens0, data = wheat_EA_join)
+
+wheat_form_sens1 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + 
+      poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens1 <- lm(wheat_form_sens1, data = wheat_EA_join)
+
+wheat_form_sens2 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + 
+      poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') + 
+      
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens2 <- lm(wheat_form_sens2, data = wheat_EA_join)
+
+
+wheat_form_sens3 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + 
+      poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+wheat_lm_sens3 <- lm(wheat_form_sens3, data = wheat_EA_join)
+
+wheat_form_sens4 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   +  
+      
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens4 <- lm(wheat_form_sens4, data = wheat_EA_join)
+
+wheat_form_sens5 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens5 <- lm(wheat_form_sens5, data = wheat_EA_join)
+
+wheat_form_sens6 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens6 <- lm(wheat_form_sens6, data = wheat_EA_join)
+
+wheat_form_sens7 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens7 <- lm(wheat_form_sens7, data = wheat_EA_join)
+
+wheat_form_sens8 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens8 <- lm(wheat_form_sens8, data = wheat_EA_join)
+
+wheat_form_sens9 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens9 <- lm(wheat_form_sens9, data = wheat_EA_join)
+
+wheat_form_sens10 =  paste0('WHEAT_OPH_w ~ poly(PH,',order['PH'],') + poly(WHEAT_FERT_PER_AREA_w,',order['WHEAT_FERT_PER_AREA_w'],')   +
+
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_sens10 <- lm(wheat_form_sens10, data = wheat_EA_join)
+
+
+
+# choose polynomial order 
+barley_poly_results = list()
+order= list()
+variable = c('PH','BARLEY_FERT_PER_AREA_w','CEC','SOC','SND','pdsi','elevation',
+             'BARLEY_EXT_AREA_p','BARLEY_IMSEED_p','BARLEY_IRG_AREA_p',
+             'BARLEY_DAMAGE_AREA_p','dist_pp50k')
+for(var in variable){
+    lm_list=list()
+      for(d in c(1,2,3,4,5)){
+        yX = 'BARLEY_OPH_w ~ poly(PH,1) + poly(BARLEY_FERT_PER_AREA_w,1)   +
+              poly(CEC,1)  +  poly(SOC,1) +  poly(SND,1) + poly(pdsi,1)  +
+              poly(elevation,1) +  poly(BARLEY_EXT_AREA_p,1)   + poly(BARLEY_IMSEED_p,1)  +
+              poly(BARLEY_IRG_AREA_p,1) +  poly(BARLEY_DAMAGE_AREA_p,1) +
+              poly(dist_pp50k,1) +
+              factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+factor(AGP_Dum)
+              + factor(REGIONCODE)'
+        
+        lm_list[[d]]= lm(yX %>% 
+                           str_replace(pattern =paste0(var,',1'),  
+                                  replace=paste0(var,',',as.character(d))),
+                                  data=barley_EA_join)
+      }
+    result = anova(lm_list[[1]],lm_list[[2]],lm_list[[3]],lm_list[[4]],lm_list[[5]])
+    w_sig = min(which(result$`Pr(>F)`>0.05))
+    w_sig = ifelse(sum(c(result$`Pr(>F)`<0.05)[2:5])==4, 5, w_sig)
+    # w_sig = ifelse(is.na(c(result$`Pr(>F)`>0.05)[2]),1,w_sig) # if lower order are NA
+    # w_sig = ifelse(length(w_sig)>0,w_sig,1)  # if non are 
+    order[var]= max(c(1,w_sig-1),rm.na=T)
+    barley_poly_results[[var]] = c(result$`Pr(>F)`)
+
+}
+
+
+barley_form_sens0 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens0<- lm(barley_form_sens0, data = barley_EA_join)
+ 
+barley_form_sens1 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens1<- lm(barley_form_sens1, data = barley_EA_join)
+ 
+barley_form_sens2 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens2<- lm(barley_form_sens2, data = barley_EA_join)
+ 
+barley_form_sens3 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens3<- lm(barley_form_sens3, data = barley_EA_join)
+ 
+barley_form_sens4 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+barley_lm_sens4<- lm(barley_form_sens4, data = barley_EA_join)
+ 
+barley_form_sens5 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+barley_lm_sens5<- lm(barley_form_sens5, data = barley_EA_join)
+ 
+barley_form_sens6 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens6<- lm(barley_form_sens6, data = barley_EA_join)
+ 
+barley_form_sens7 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens7<- lm(barley_form_sens7, data = barley_EA_join)
+ 
+barley_form_sens8 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens8<- lm(barley_form_sens8, data = barley_EA_join)
+ 
+barley_form_sens9 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+      poly(CEC,',order['CEC'],')  +  
+
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens9<- lm(barley_form_sens9, data = barley_EA_join)
+ 
+barley_form_sens10 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],')   +
+
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+
+barley_lm_sens10<- lm(barley_form_sens10, data = barley_EA_join)
+```
+
+\newpage
+<!-- \blandscape -->
+```{r sensativity variables wheat, results= if (is_word) 'markup' else 'asis', cache=F }
+stargazer(wheat_lm_sens0,wheat_lm_sens1,wheat_lm_sens2,wheat_lm_sens3,wheat_lm_sens4,wheat_lm_sens5, wheat_lm_sens6,wheat_lm_sens7,
+          wheat_lm_sens8,wheat_lm_sens9,wheat_lm_sens10, 
+          title = 'Wheat variable sensativity',
+          type=ifelse(is_word,'text','latex'),
+          font.size="scriptsize",
+          style = 'ajps',
+          report = 'vc*',
+          align = T,
+          header = F,
+          no.space=T,
+          column.sep.width = "1pt",
+          dep.var.labels='Wheat Yield', 
+          omit.stat = c("rsq", "f",'ser','n'),
+          omit = c('Total_agr_ecological','Year','PSNP_Dum','AGP_Dum','REGIONCODE'),
+          # omit.labels = c('Ag_Eco','Year','PSNP','AGP','Region')
+           covariate.labels =
+             c("p(PH, 1)" ,"p(PH, 2)","p(PH, 3)","p(PH, 4)",
+          "p(Fert, 1)", "p(Fert, 2)","p(CEC, 1)","p(CEC, 2)","p(CEC, 3)",
+          "p(SOC, 1)","p(SOC, 2)","p(SND, 1)","p(SND, 2)","PDSI","Elevation",       
+            "Ext.Area","p(Imp.Seed, 1)","p(Imp.Seed, 2)","p(Imp.Seed, 3)","Irg.Area","p(Damage, 1)","p(Damage, 2)","p(Damage, 3)","p(Damage, 4)","DistPP")  ,
+            add.lines = list(c("Fixed effects", rep('Yes',11))),
+          float.env = ifelse(is_word,'table',"sidewaystable")
+          
+          )
+```
+\newpage
+```{r sensativity variable barley, results= if (is_word) 'markup' else 'asis', cache=F }
+#https://www.jakeruss.com/cheatsheets/stargazer/
+stargazer(barley_lm_sens0,barley_lm_sens1,barley_lm_sens2,barley_lm_sens3,barley_lm_sens4,barley_lm_sens5, barley_lm_sens6,barley_lm_sens7,barley_lm_sens8,barley_lm_sens9,barley_lm_sens10, 
+          
+          title = 'Barley variable sensativity',
+          type=ifelse(is_word,'text','latex'),
+          style = 'ajps',
+          font.size="scriptsize",
+          header = F,
+          report = 'vc*',
+          align = T,
+          no.space=T,
+          column.sep.width = "1pt",
+          dep.var.labels='Barley Yield', 
+          omit.stat = c("rsq", "f",'ser','n'),
+          omit = c('Total_agr_ecological','Year','PSNP_Dum','AGP_Dum','REGIONCODE'),
+          # omit.labels = c('Ag_Eco','Year','PSNP','AGP','Region')
+           # covariate.labels = c('PH','Fert','CEC','SOC','SND','PDSI','Elevation','Ext.Area','Imp.Seed','Irg.Area','Damage','DistPP'))
+           covariate.labels = 
+             c("p(PH, 1)" ,"p(PH, 2)","p(PH, 3)","p(Fert, 1)", "p(Fert, 2)","CEC","p(SOC, 1)","p(SOC, 2)","p(SND, 1)","p(SND, 2)","p(SND, 3)","p(SND, 4)","PDSI","Elevation",       
+            "p(Ext.Area, 1)","p(Ext.Area, 2)","Imp.Seed","Irg.Area","p(Damage, 1)","p(Damage, 2)","p(Damage, 3)","p(Damage, 4)","DistPP")  ,
+          add.lines = list(c("Fixed effects", rep('Yes',11))),
+          # column.labels = c("Full", seq(1,10))
+          float.env = ifelse(is_word,'table',"sidewaystable")
+
+          )
+
+```
+<!-- \elandscape -->
+```{r Check poly order wheat, results= if (is_word) 'markup' else 'asis', cache=T}
+
+
+# choose polynomial order 
+wheat_poly_results = list()
+order= list()
+variable = c('PH','WHEAT_FERT_PER_AREA_w','CEC','SOC','SND','pdsi','elevation',
+             'WHEAT_EXT_AREA_p','WHEAT_IMSEED_p','WHEAT_IRG_AREA_p',
+             'WHEAT_DAMAGE_AREA_p','dist_pp50k')
+for(var in variable){
+    lm_list=list()
+      for(d in c(1,2,3,4,5)){
+        yX = 'WHEAT_OPH_w ~ poly(PH,1) + poly(WHEAT_FERT_PER_AREA_w,1)   +
+              poly(CEC,1)  +  poly(SOC,1) +  poly(SND,1) + poly(pdsi,1)  +
+              poly(elevation,1) +  poly(WHEAT_EXT_AREA_p,1)   + poly(WHEAT_IMSEED_p,1)  +
+              poly(WHEAT_IRG_AREA_p,1) +  poly(WHEAT_DAMAGE_AREA_p,1) +
+              poly(dist_pp50k,1) +
+              factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+factor(AGP_Dum)
+              + factor(REGIONCODE)'
+        
+        lm_list[[d]]= lm(yX %>% 
+                           str_replace(pattern =paste0(var,',1'),  
+                                  replace=paste0(var,',',as.character(d))),
+                                  data=wheat_EA_join)
+      }
+    result = anova(lm_list[[1]],lm_list[[2]],lm_list[[3]],lm_list[[4]],lm_list[[5]])
+    w_sig = min(which(result$`Pr(>F)`>0.05))
+    w_sig = ifelse(sum(c(result$`Pr(>F)`<0.05)[2:5])==4, 5, w_sig) #if all sig
+    order[var]= max(c(1,w_sig-1),rm.na=T)
+    wheat_poly_results[[var]] = c(result$`Pr(>F)`)
+}
+
+wheat_form_p0 =  paste0('WHEAT_OPH_w ~ poly(PH,',4,') +
+      poly(WHEAT_FERT_PER_AREA_w,',2,')   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_p0 <- lm(wheat_form_p0, data = wheat_EA_join)
+
+
+wheat_form_p1 =  paste0('WHEAT_OPH_w ~ poly(PH,3) + 
+      poly(WHEAT_FERT_PER_AREA_w, 2)   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_p1 <- lm(wheat_form_p1, data = wheat_EA_join)
+names(wheat_lm_p1$coefficients)[1:4] = c("(Intercept)","poly(PH, 4)1","poly(PH, 4)2","poly(PH, 4)3")
+
+wheat_form_p2 =  paste0('WHEAT_OPH_w ~ poly(PH,2) + 
+      poly(WHEAT_FERT_PER_AREA_w, 2)   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_p2 <- lm(wheat_form_p2, data = wheat_EA_join)
+names(wheat_lm_p2$coefficients)[1:3] = c("(Intercept)","poly(PH, 4)1","poly(PH, 4)2")
+
+
+wheat_form_p3 =  paste0('WHEAT_OPH_w ~ poly(PH,1) + 
+      poly(WHEAT_FERT_PER_AREA_w, 2)   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_p3 <- lm(wheat_form_p3, data = wheat_EA_join)
+names(wheat_lm_p3$coefficients)[1:2] = c("(Intercept)","poly(PH, 4)1")
+
+
+wheat_form_p4 =  paste0('WHEAT_OPH_w ~ poly(PH,4) + 
+      poly(WHEAT_FERT_PER_AREA_w, 1)   +
+      poly(CEC,',order['CEC'],')  +  poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(WHEAT_EXT_AREA_p,',order['WHEAT_EXT_AREA_p'],')   + 
+      poly(WHEAT_IMSEED_p,',order['WHEAT_IMSEED_p'],')  +
+      poly(WHEAT_IRG_AREA_p,',order['WHEAT_IRG_AREA_p'],') +  
+      poly(WHEAT_DAMAGE_AREA_p,',order['WHEAT_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+wheat_lm_p4 <- lm(wheat_form_p4, data = wheat_EA_join)
+names(wheat_lm_p4$coefficients)[1:6] = c("(Intercept)","poly(PH, 4)1","poly(PH, 4)2","poly(PH, 4)3","poly(PH, 4)4",
+                                         "poly(WHEAT_FERT_PER_AREA_w, 2)1")
+ 
+test <- linearHypothesis (wheat_lm_p4, c("poly(PH, 4)1=0","poly(PH, 4)2=0","poly(PH, 4)3 =0","poly(PH, 4)4 =0"))
+wheat_lm_p4_pval <- test$`Pr(>F)`[2]
+
+stargazer(wheat_lm_p0,wheat_lm_p1,wheat_lm_p2,wheat_lm_p3,wheat_lm_p4,#barley_lm_p0,barley_lm_p1,barley_lm_p2,barley_lm_p3, 
+          type=ifelse(is_word,'text','latex'),          
+          title = 'Wheat pH and fertilizer order sensitivity',
+          style = 'ajps',
+          font.size="scriptsize",
+          report = 'vc*',  header = F,# font.size='footnotesize',
+          align = T,
+          no.space=T,
+          column.sep.width = "1pt",
+          dep.var.labels='Wheat Yield', 
+          omit.stat = c("rsq", "f",'ser','n'),
+          omit = c('Total_agr_ecological','Year','PSNP_Dum','AGP_Dum','REGIONCODE'),
+          covariate.labels =
+            c("p(PH, 1)" ,"p(PH, 2)","p(PH, 3)","p(PH, 4)","p(Fert, 1)", "p(Fert, 2)","p(CEC, 1)","p(CEC, 2)","p(CEC, 3)","p(SOC, 1)","p(SOC, 2)","p(SND, 1)","p(SND, 2)",
+              "PDSI","Elevation",
+           "Ext.Area","p(Imp.Seed, 1)","p(Imp.Seed, 2)","p(Imp.Seed, 3)","Irg.Area","p(Damage, 1)","p(Damage, 2)","p(Damage, 3)","p(Damage, 4)","DistPP")  ,
+          add.lines = list(c("Fixed effects", rep('Yes',5)))
+          # column.labels = c("Full", seq(1,10))
+          )
+```
+
+```{r check poly order barley, results= if (is_word) 'markup' else 'asis', cache=F}
+#####################
+
+
+
+# choose polynomial order 
+barley_poly_results = list()
+order= list()
+variable = c('PH','BARLEY_FERT_PER_AREA_w','CEC','SOC','SND','pdsi','elevation',
+             'BARLEY_EXT_AREA_p','BARLEY_IMSEED_p','BARLEY_IRG_AREA_p',
+             'BARLEY_DAMAGE_AREA_p','dist_pp50k')
+for(var in variable){
+    lm_list=list()
+      for(d in c(1,2,3,4,5)){
+        yX = 'BARLEY_OPH_w ~ poly(PH,1) + poly(BARLEY_FERT_PER_AREA_w,1)   +
+              poly(CEC,1)  +  poly(SOC,1) +  poly(SND,1) + poly(pdsi,1)  +
+              poly(elevation,1) +  poly(BARLEY_EXT_AREA_p,1)   + poly(BARLEY_IMSEED_p,1)  +
+              poly(BARLEY_IRG_AREA_p,1) +  poly(BARLEY_DAMAGE_AREA_p,1) +
+              poly(dist_pp50k,1) +
+              factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum)+factor(AGP_Dum)
+              + factor(REGIONCODE)'
+        
+        lm_list[[d]]= lm(yX %>% 
+                           str_replace(pattern =paste0(var,',1'),  
+                                  replace=paste0(var,',',as.character(d))),
+                                  data=barley_EA_join)
+      }
+    result = anova(lm_list[[1]],lm_list[[2]],lm_list[[3]],lm_list[[4]],lm_list[[5]])
+    w_sig = min(which(result$`Pr(>F)`>0.05))
+    w_sig = ifelse(sum(c(result$`Pr(>F)`<0.05)[2:5])==4, 5, w_sig)
+    # w_sig = ifelse(is.na(c(result$`Pr(>F)`>0.05)[2]),1,w_sig) # if lower order are NA
+    # w_sig = ifelse(length(w_sig)>0,w_sig,1)  # if non are 
+    order[var]= max(c(1,w_sig-1),rm.na=T)
+    barley_poly_results[[var]] = c(result$`Pr(>F)`)
+
+}
+
+
+barley_form_p0 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',2,')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+barley_lm_p0<- lm(barley_form_p0, data = barley_EA_join)
+
+barley_form_p1 =  paste0('BARLEY_OPH_w ~ poly(PH,',2,') + poly(BARLEY_FERT_PER_AREA_w,',2,')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+barley_lm_p1<- lm(barley_form_p1, data = barley_EA_join)
+names(barley_lm_p1$coefficients)[1:3] = c("(Intercept)","poly(PH, 3)1","poly(PH, 3)2")
+
+barley_form_p2 =  paste0('BARLEY_OPH_w ~ poly(PH,',1,') + poly(BARLEY_FERT_PER_AREA_w,',2,')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+barley_lm_p2 <- lm(barley_form_p2, data = barley_EA_join)
+names(barley_lm_p2$coefficients)[1:2] = c("(Intercept)","poly(PH, 3)1")
+
+
+barley_form_p3 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,') + poly(BARLEY_FERT_PER_AREA_w,',1,')   +
+      poly(CEC,',order['CEC'],')  +  
+      poly(SOC,',order['SOC'],') +  
+      poly(SND,',order['SND'],') + 
+      poly(pdsi,',order['pdsi'],')  +
+      poly(elevation,',order['elevation'],') +  
+      poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + 
+      poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
+      poly(BARLEY_IRG_AREA_p,',order['BARLEY_IRG_AREA_p'],') +  
+      poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
+      poly(dist_pp50k,',order['dist_pp50k'],') +
+      factor(Year) + factor(Total_agr_ecological) +factor(PSNP_Dum) +factor(AGP_Dum) +  factor(REGIONCODE)')
+barley_lm_p3 <- lm(barley_form_p3, data = barley_EA_join)
+names(barley_lm_p3$coefficients)[1:5] = c("(Intercept)","poly(PH, 3)1","poly(PH, 3)2","poly(PH, 3)3","poly(BARLEY_FERT_PER_AREA_w, 2)1")
+
+
+stargazer(#wheat_lm_p0,wheat_lm_p1,wheat_lm_p2,wheat_lm_p3,wheat_lm_p4,
+          barley_lm_p0,barley_lm_p1,barley_lm_p2,barley_lm_p3, 
+          type=ifelse(is_word,'text','latex'),
+          title = 'Barley pH and fertilizer order sensitivity',
+          style = 'ajps',
+          font.size="scriptsize",
+          report = 'vc*', header = F, #font.size='footnotesize',
+          align = T,
+          no.space=T,
+          column.sep.width = "1pt",
+          dep.var.labels='Barley Yield', 
+          omit.stat = c("rsq", "f",'ser','n'),
+          omit = c('Total_agr_ecological','Year','PSNP_Dum','AGP_Dum','REGIONCODE'),
+          # omit.labels = c('Ag_Eco','Year','PSNP','AGP','Region')
+           # covariate.labels = c('PH','Fert','CEC','SOC','SND','PDSI','Elevation','Ext.Area','Imp.Seed','Irg.Area','Damage','DistPP'))
+          covariate.labels =
+            c("p(PH, 1)" ,"p(PH, 2)","p(PH, 3)","p(Fert, 1)", "p(Fert, 2)","CEC","p(SOC, 1)","p(SOC, 2)","p(SND, 1)","p(SND, 2)","p(SND, 3)","p(SND, 4)",
+              "PDSI","Elevation",
+           "p(Ext.Area, 2)", "p(Ext.Area, 2)","Imp.Seed","Irg.Area",
+              "p(Damage, 1)","p(Damage, 2)","p(Damage, 3)","p(Damage, 4)","DistPP"),
+          add.lines = list(c("Fixed effects", rep('Yes',5)))
+          # column.labels = c("Full", seq(1,10))
+          )
+```
+
+
+This paper was generated in R with [@R-knitr;@R-rmarkdown;@knitr2015; @knitr2014;@rmarkdown2018; @rmarkdown2020;@stargazer].
+  
+
+```{r}
+knitr::write_bib(x = c("knitr", "rmarkdown") , file = "usedpackages.bib")
+```
+
+\newpage
+# References {-}
