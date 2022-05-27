@@ -16,15 +16,16 @@ header-includes:
 output:
   word_document: 
     reference_docx: ./Template.docx
-  html_document:
-    df_print: paged
   pdf_document: 
     fig_caption: false
     toc: false
     number_sections: true
+    keep_tex: yes
     # citation_package: biblatex
-bibliography: mybibfile.bib  #https://bookdown.org/yihui/rmarkdown-cookbook/bibliography.html  #https://www.zotero.org/styles?q=American%20Psychological%20Association
-csl: apa7.csl
+  html_document:
+    df_print: paged
+bibliography: mybibfile.bib  #https://bookdown.org/yihui/rmarkdown-cookbook/bibliography.html  
+csl: plos-one.csl   #https://www.zotero.org/styles?q=American%20Psychological%20Association
 # link-citations: yes
 #  Cover page built in https://www.overleaf.com/project/606b5db00ec4e2dcf66e1e17
 ---
@@ -62,7 +63,7 @@ library(ggplot2)
 library(stargazer)
 library(reshape2)
 library(randomForest)
-library(stars)
+# library(stars)
 library(pdp)
 library(pander)
 library(caret)
@@ -304,8 +305,6 @@ fix_fert_at_0 =T
 
 
 
-<!-- \begin{abstract} -->
-
 ```{r include=FALSE, cache=F}
 # load results from conclusion to insert into abstract
 h_acidic_oph = readRDS('./Images/h_acidic_oph.rds')
@@ -314,54 +313,58 @@ mean_EA_area = readRDS('./Images/mean_EA_area.rds')
 hacid_lime_cost_savings = readRDS('./Images/hacid_lime_cost_savings.rds')
 ```
 
- 
+James M. Warner$^{*1 \$}$, Michael L. Mann$^{2 \$}$, Jordan Chamberlin$^{3}$ , Chilot Tizale$^{4}$
+
+$^{1}$ International Food Policy Research Institute, ILRI Campus, Addis Ababa Ethiopia
+$^{2}$ Department of Geography, The George Washington University, Washington, DC, United States
+$^{3}$ Food and Agriculture Organization of the United Nations, Rome, Italy
+$^{4}$ Ethiopian Institute of Agricultural Research, Addis Ababa, Ethiopia
+
+$*$ Corresponding Author: 
+Email: J.Warner@cgiar.org
+
+$^{\$}$ The authors contributed equally to this work.
 
 # Abstract {-}
-<!-- Acid soils are a major constraint to agricultural productivity in many parts of sub-Saharan Africa, including Ethiopia. Restoring soil pH to optimal ranges for agriculture can have a significant impact on yields, particularly for acid intolerant crops like wheat and barley. The application of agricultural lime is the standard corrective, although the large application requirements, lack of farmer awareness, and weak or non-existent lime supply chains make this a complex problem to address at scale. Leveraging spatial variability and panel data, we examine the impact of soil pH and farm management on crop yields for wheat and barley at the local (sub-kebele) level. Our estimates find the impact of moving pH from 5.5 to 6.5, modeled as a lime soil remediation strategy, increases yields by `r round(ph_oph[1,3],0)`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. In addition, at lower pH levels our models indicate that commonly used nitrogen-based fertilizers are less cost-effective. For wheat in highly acidic soils, we find that fertilizers cost over `r paste(english(round(min(h_acidic_oph$PV.Fert.needed.match.6.5)/total_lime_cost,0)*-1))` times as much as a single application of lime over a `r paste(english(pv_years))`-year period. The cost savings of the use of lime reaches as high as `r round(hacid_lime_cost_savings$wheat*100)`% of one-year agricultural income for wheat, spread over a five-year period - with barley these savings are lower but still substantial at `r round(hacid_lime_cost_savings$barley*100)`%. We find the greatest benefits of applying lime are located in northern SNNP and western areas of Amhara and Oromia, largely matching the patterns to highly acidic soils as well as proximity to lime crushing facilities. Further, increased fertilizer application, used to offset the decline in productivity caused by acidification can accelerate lower pH levels and further aggravate the problem. In general, we advocate for an integrated soil fertility management strategy that applies appropriate levels of fertilizer on pH balanced soil. If properly managed, Ethiopia’s acid soil reclamation could become a more modest version of Brazil’s successful “Cerrado miracle” and serve as an example for the African continent. -->
 
-Acid soils are a major constraint to agricultural productivity in many parts of sub-Saharan Africa, including Ethiopia. Restoring soil pH to optimal ranges for agriculture can have a significant impact on yields, particularly for acid intolerant crops like wheat and barley. The application of agricultural lime is the standard corrective, although the large application requirements, lack of farmer awareness, and weak or non-existent lime supply chains make this a complex problem to address at scale. Leveraging spatial variability and panel data, we examine the impact of soil pH and farm management on crop yields for wheat and barley at the local level. Our estimates find the impact of moving pH from 5.5 to 6.5, modeled as a lime soil remediation strategy, increases yields by `r round(ph_oph[1,3],0)`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. In addition, at lower pH levels our models indicate that commonly used nitrogen-based fertilizers are less cost-effective. For wheat in highly acidic soils, we find that fertilizers cost over `r paste(english(round(min(h_acidic_oph$PV.Fert.needed.match.6.5)/total_lime_cost,0)*-1))` times as much as a single application of lime over a `r paste(english(pv_years))`-year period. The cost savings of the use of lime reaches as high as `r round(hacid_lime_cost_savings$wheat*100)`% of one-year agricultural income for wheat - with barley these savings are lower but still substantial at `r round(hacid_lime_cost_savings$barley*100)`%. In general, we advocate for an integrated soil fertility management strategy that applies appropriate levels of fertilizer on pH balanced soil. If successful, Ethiopia’s acid soil reclamation could become a modest version of Brazil’s successful “Cerrado miracle” and serve as an example for Africa.
+Acid soils are a major constraint to agricultural productivity in many parts of sub-Saharan Africa, including Ethiopia. Restoring soil pH to optimal ranges for agriculture can have a significant impact on yields, particularly for acid intolerant crops like wheat and barley. The application of agricultural lime is the standard corrective, although the large application requirements, lack of farmer awareness, and weak or non-existent lime supply chains make this a complex problem to address at scale. Leveraging spatial variability and panel data, we examine the impact of soil pH and farm management on crop yields for wheat and barley at the local level. Our estimates find the impact of moving pH from 5.5 to 6.5, modeled as a lime soil remediation strategy, increases yields by `r round(ph_oph[1,3],0)`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. In addition, at lower pH levels our models indicate that commonly used nitrogen-based fertilizers are less cost-effective. For wheat in highly acidic soils, we find that fertilizers cost over `r paste(english(round(min(h_acidic_oph$PV.Fert.needed.match.6.5)/total_lime_cost,0)*-1))` times as much as a single application of lime over a `r paste(english(pv_years))`-year period. The cost savings of the use of lime reaches as high as `r round(hacid_lime_cost_savings$wheat*100)`% of average one-year agricultural income for wheat - with barley these savings are lower but still substantial at `r round(hacid_lime_cost_savings$barley*100)`%. In general, we advocate for an integrated soil fertility management strategy that applies appropriate levels of fertilizer on pH balanced soil. If successful, Ethiopia’s acid soil reclamation could become a modest version of Brazil’s successful “cerrado miracle” and serve as an example for Africa.
 
 
 \newpage
 \doublespacing
 
-
-
-  
-# Introduction 
-Over decades of intensive utilization, small-scale farmers in Africa have removed large quantities of nutrients from their soils without sufficient inputs to replenish them [@drechsel2001population; @tully2015state]. Even though Ethiopia holds a substantial proportion of East Africa’s best croplands, the natural characteristics, intensive use of fertilizers on many of Ethiopia’s lands have led to extensive soil acidification and abandonment. This, coupled with the loss of topsoil, creates a challenging environment for the country to increase staple crop yields and food supply. While there exist some empirical assessments of the extent of soil acidity in Ethiopia, national estimates of impacts on yield gaps have not been carried out [@gurmessa2020soil], much less economic returns to addressing soil acidity through liming or other means. In this paper, we model the effects of soil acidification on wheat, and barley production on data between 2010 and 2016[^dates]. In particular, we explore the extent to which – and where – farmers would benefit from the application of lime to increase yields in comparison to yield gains attainable through nitrogen (N) fertilizers. 
+   
+# Introduction {-}
+Over decades of intensive utilization, small-scale farmers in Africa have removed large quantities of nutrients from their soils without sufficient inputs to replenish them [@drechsel2001population; @tully2015state]. Even though Ethiopia holds a substantial proportion of East Africa’s best croplands, the natural characteristics, intensive use of fertilizers on many of Ethiopia’s lands have led to extensive soil acidification and abandonment. This, coupled with the loss of topsoil, creates a challenging environment for the country to increase staple crop yields and food supply. While there exist some empirical assessments of the extent of soil acidity in Ethiopia, national estimates of impacts on yield gaps have not been carried out [@gurmessa2020soil]. As such, there have been no studies addressing how to close those gaps in a cost effective manner at a national scale.
 
 Soil acidification is a major cause of declining soil fertility in many parts of the humid sub-tropics, particularly in tropical Oxisols and Urtisols soils. Soils become acidic when basic elements such as calcium, magnesium, sodium and potassium held by soil colloids are replaced by hydrogen ions. This removal of bases can occur through natural processes, such as leaching caused by rainfall, or anthropogenic processes, such as intensive use of ammonium-based fertilizers and continuous cropping without organic inputs [@tully2015state; @McCauley2017montana]. The impact of N-based fertilizers is case dependent but can increase acidity if some N is lost to leaching [@McCauley2017montana]. One research group suggests that for every 1 kg of urea applied, nearly 1.8 kg of calcium carbonate is required to neutralize the treated soil [@mosaic]. Moreover, anthropogenically induced acidification is likely a major contributing factor to farmland abandonment in Ethiopia’s more marginal croplands [@takala2019soil].
 
 Acidification has a number of direct and indirect effects on plant health and development. Correcting soil acidity through the use of lime can serve as a foundation of a good soil fertility program. Maintaining proper soil pH has a variety of primary and secondary benefits including critically, increasing yields and the stimulation of microbial activity. In some experimental wheat plots, lime application can increase root length density by >100% and yields by up to 200% [@CAIRES200857]. Most varieties of wheat and barley grow best in soils with a pH ranging from 6 to 7, with 6.5 often mentioned as the target level [@vitosh_wheat; @ketterings2006lime; @ristow2010lime].
 
-[^dates]: In 2017, the Central Statistics Agency employed a significantly different research design for collecting AgSS data. To maintain the integrity of the panel data set, data beyond 2016 were not used. This also aligns with the EthioSIS soil data collection period.
-
-
-Areas of high acidity are located throughout the western highlands, with previous studies having identified areas of high acidity in the western and central highlands of Oromia and Amhara [@deressa2007inventory; @chimdi2012effects; @amede2019managing], and highland areas of SNNP [@amede2001reversing]. Previous studies have estimated that 40% of Ethiopia’s arable lands are acidic [@deressa2007inventory]. More recent assessments have indicated that soil acidity is expanding in scope and magnitude in Ethiopia, seriously affecting crop production [@lulu2020soil]. For example, in some barley, wheat and fava bean growing areas of central and southern Ethiopian highlands, farmers have shifted to producing oats that are more tolerant to soil acidity [@haile2009mitigation; @agegnehu2019soil]. Many farmers practice a barley–fallow–oats rotation system to reduce the negative effects of soil acidity and improve soil fertility [@regassa2011potentials]. However, this rotation system is not sustainable [@alemu2017effect], and addressing soil acidity with lime seems critical for longer term sustainability.
+Areas of high acidity are located throughout the western Ethiopian highlands, but particularly in the western and central highlands of Oromia and Amhara [@deressa2007inventory; @chimdi2012effects; @amede2019managing], and highland areas of SNNP [@amede2001reversing]. In all it is estimated that 40% of Ethiopia’s arable lands are acidic [@deressa2007inventory]. More recent assessments have indicated that soil acidity is expanding in scope and magnitude in Ethiopia, seriously affecting crop production [@lulu2020soil]. For example, in some barley, wheat and fava bean growing areas of central and southern Ethiopian highlands, farmers have shifted to producing oats that are more tolerant to soil acidity [@haile2009mitigation; @agegnehu2019soil]. Many farmers practice a barley–fallow–oats rotation system to reduce the negative effects of soil acidity and improve soil fertility [@regassa2011potentials]. However, this rotation system is not sustainable [@alemu2017effect], and addressing soil acidity with lime seems critical for longer term sustainability.
 
 <!-- There are several important variables to consider when analyzing lime application and acid soil amelioration and most research in Ethiopia reflects varying methodologies and reporting of variables.  More specifically, the movement and effectiveness of lime varies according to the timing and rate of liming, quality of liming material, depth of lime application, the status of soil fertility, soil type, surface soil pH, crop species and varieties, crop management practices as well as weather conditions [@fageria2008role;@conyers2003amelioration;@ernani2004chemical; @caires2005surface]. All of these factors can influence productivity responses to lime, which makes comprehensive statements about productivity responses to lime somewhat challenging.  However,  -->
 
 <!-- Although the science is complex, some basic tenets seem largely accepted by most researchers in the field; including that the application of lime in Ethiopia has significantly positive impacts on crop production and crop productivity. -->
 
-Lime is often referred to as the foundation or "workhorse" in acid soils [@fageria2008role], and a multitude of researchers have shown the effect of lime on soil pH. Studies also indicate that joint application of lime and fertilizer (components of an integrated soil fertility management strategy) have significant synergistic effects on grain yields. Caires et al. [-@CAIRES200857] evaluated the effects of wheat yield and root growth, and found that wheat yield was significantly increased by lime combined with fertilizer. These treatments included two lime liming treatments (3 mt/ha  and 6 mt/ha seven years apart) with 80 kg/ ha of N and 33 kg/ ha of K  applied annually. Compared with the no lime control, the initial liming  increased wheat grain yield by 170% and the second treatment by 210% in the same plots seven years later. Research indicates that lime applications have multi-year impacts with conservative time impacts of between 5 to 7 years. However, a lime application can extend to as much as a 10 to 12 years from a single lime application, implying the impacts of lime application compound over several years [@malhi1995longevity;@lukin2003optimal;@coventry1997longevity]. 
+Lime is often referred to as the foundation or "workhorse" in acid soils [@fageria2008role], and a multitude of researchers have shown the effect of lime on soil pH. Studies also indicate that joint application of lime and fertilizer (components of an integrated soil fertility management strategy) have significant synergistic effects on grain yields. Caires et al.[-@CAIRES200857] evaluated the effects of wheat yield and root growth, and found that wheat yield was significantly increased by lime combined with fertilizer. These treatments included two lime liming treatments (3 mt/ha  and 6 mt/ha seven years apart) with 80 kg/ ha of N and 33 kg/ ha of K  applied annually. Compared with the no lime control, the initial liming  increased wheat grain yield by 170% and the second treatment by 210% in the same plots seven years later. Research indicates that lime applications have multi-year impacts which conservatively last between 5 to 7 years. However, a lime application benefits can extend to as many as 10 to 12 years from a single lime application, implying the impacts of lime application compound over several years [@malhi1995longevity;@lukin2003optimal;@coventry1997longevity]. 
 
 <!-- For example, Buni [-@buni2014effects] determined that soil pH increased significantly from 5.03 in the plots without lime to 6.72 at the lime rate of 3.75t/ha in the southern part of Ethiopia.  Liming also considerably affects soil nutrient availability (P, Ca, Mg) and decreases Mn and Fe [@agegnehu2006yield; @hati2008impact].   -->
 <!-- Agegnehu et al. [-@agegnehu2006yield] indicated that soil pH consistently increased from 4.37 to 5.91 as the liming rate increased. Hati et al. [-@hati2008impact], also evaluated that, the application of lime with Nitrogen, Phosphorus and Potassium (NPK) increases the pH of the surface, 0-15cm depth, from 5.3 to 5.9 and for 15-30 cm depth, increases the pH from 5.3 to 6.1. -->
 
 <!-- According to field experiment results from 2009 to 2013 in western Ethiopia, the combined application of 1.65 lime mt/ha and 30 P kg/ha resulted in 133% higher grain yields of barley than the control (without P and lime) [@desalegn2017effect]. While the highest yield of barley was obtained in the third year after the application of lime [@buni2014effects], researchers have noted that the fineness of the applied lime is positively correlated to the speed in which it neutralizes acidity [@kett2006lime]\\[^mesh]. Results suggested by Hati et al. [@hati2008impact] indicated that, continuous use of nitrogen, phosphorus and potassium (NPK) + lime would sustain yield in a soybean–wheat system without deteriorating soil quality. Therefore, soil test-based lime and fertilizer applications can be used for the sustainable production of malt barley on acidic soils in Ethiopia.   -->
 
-Field studies inside of Ethiopia and other developing nations have found consistent benefits of lime application, including the expected reduction of acidity [@buni2014effects; @agegnehu2006yield], a 90-130%+ increase in yields on treatment plots [@desalegn2017effect; @buni2014effects], increased nutrient availability [@agegnehu2006yield; @hati2008impact], and indications of sustainable yields for soy-wheat rotation, and malt barley production in acidic soils using lime in conjunction with N, P and K (NPK) [@hati2008impact]. Overall, while liming application amounts, crop type, and productivity responses vary widely, overwhelming evidence suggests significant productivity responses with lime applications in both international and Ethiopian studies.  It is important to note that most of these studies are done at the test plot level and, to the best of our knowledge, no larger pilot programs have evaluated the effects of lime application of representative farmers in Ethiopia, or Africa more generally.
+Field studies inside of Ethiopia and other developing nations have found consistent benefits of lime application, including the expected reduction of acidity [@buni2014effects; @agegnehu2006yield]. These experiments have found a 90-130%+ increase in yields on treatment plots [@desalegn2017effect; @buni2014effects], increased nutrient availability [@agegnehu2006yield; @hati2008impact], and indications of sustainable yields for soy-wheat rotation, and malt barley production in acidic soils using lime in conjunction with N, P and K (NPK) [@hati2008impact]. Overall, while liming application amounts, crop type, and productivity responses vary widely, overwhelming evidence suggests significant productivity responses with lime applications in both international and Ethiopian studies. According to a recent Ethiopian-focused meta-analysis, barley productivity increases a projected 47% when pH is moved from 5.5 to 6.5 and wheat productivity is significant but ranges widely, from 34% to 252%, depending on location and specific lime and other input applications [@agegnehu2021extent]. It is important to note that most of these studies are done at the test plot level and, to the best of our knowledge, no larger pilot programs have evaluated the effects of lime application of representative farmers in Ethiopia, or Africa more generally.
 
 <!-- [^mesh]: Assuming relevant amounts of moisture, 100 mesh fineness lime is estimated to raise pH significantly in just a couple of months.  Lime with lower mesh ratings will begin to affect pH over a longer time period [@ristow2010lime]. -->
 
 <!-- Liming materials contain calcium and/or magnesium in forms, which when dissolved, will neutralize soil acidity. Not all materials containing calcium and magnesium are capable of reducing soil acidity, and careful attention should be placed on monitoring the effectiveness of these materials. Calcium hydroxide is a strong base and reacts with $CO_2$ and $H_20$ in the soil, yielding bicarbonate ($HC0_3^-$) and hydroxide ($OH^-$). These take $H^+$ and Al (acid-forming cations) out of solution, and thereby neutralize soil acidity [@McCauley2017montana]. It is however important to differentiate between the neutralizing effects of different types of lime (calcium carbonite vs dolomitic etc) and quality, however these discussions are outside the scope of this paper  -->
 
-In this article we evaluate the impact of acidic soils on the productivity of wheat and barley for Ethiopia’s major growing regions because they are among the most important cereal crops grown in highland areas, and most affected by acid soils. We use spatial agricultural data and soil pH to evaluate soil acidity’s impact on wheat and barley yields, while controlling for other factors.  Specifically, we evaluate the quantity and cost of the annual fertilizer applications required to obtain the same productivity gains from a single lime application over a `r paste(english(pv_years))`-year period. As an important caveat, it is critical to acknowledge that our analysis uses secondary data projected over the sub-kebele area and is not at the individual plot level. While this level of aggregation depicts general impacts of pH and crop productivity, we believe the potential impacts of lime and pH balanced soil on crop productivity would be greater at the plot level. The marginal effects of lime reflect not the application of lime as a corrective, because it is generally unavailable to farmers, but reflect the variability in soil pH and their resultant differences in reported crop yields, an imperfect yet meaningful proxy.
+In this article we evaluate the impact of acidic soils on the productivity of wheat and barley for Ethiopia’s major growing regions because they are among the most important cereal crops grown in highland areas, and most affected by acid soils. We use spatial agricultural data and soil pH to evaluate soil acidity’s impact on wheat and barley yields, while controlling for other factors. Given the resource constraints of agricultural interventions in Ethiopia specifically, but Africa more generally, we compare the cost effectiveness of commonly used fertilization methods with the potential impacts of soil remediation through the application of lime. Specifically, we evaluate the quantity and cost of annual fertilizer applications required to obtain the same productivity gains from a single lime application over a `r paste(english(pv_years))`-year period. This comparison is not to argue for an "either or decision" e.g., choosing between lime and fertilizer, but critically, to explore whether or not lime should be considered an important and cost-effective intervention in Ethiopia. As an important caveat, it is critical to acknowledge that our analysis uses secondary data projected over the sub-kebele area and is not at the individual plot level. While this level of aggregation depicts general impacts of pH and crop productivity, we believe the potential impacts of lime and pH balanced soil on crop productivity would be greater at the plot level. We cannot directly assess the application of lime as a corrective, because it is largely unavailable to farmers. Therefore we estimate the marginal effects of lime exploiting the spatial variability of soil pH and their resultant differences in reported crop yields, as an imperfect yet meaningful proxy. 
 
 <!-- We use this analysis to construct a cost-benefit analysis comparing the use of chemical fertilizers and lime to address the loss in yields found in acidic and highly acidic soils (pH of < 6.5 and <5.5 respectively). -->  
 
-[^kebele]:A kebele is the lowest administrative area in Ethiopia. The sub-kebele is designed to capture approximately 200 households within the boundaries of a kebele. Therefore, the spatial area is based on the relative population density. On average, there are approximately five sub-kebeles per kebele with a typical size of  `r paste(round(mean_EA_area*0.0000010))` $km^2$ per sampled area. 
+<!-- [^kebele]:A kebele is the lowest administrative area in Ethiopia. The sub-kebele is designed to capture approximately 200 households within the boundaries of a kebele. Therefore, the spatial area is based on the relative population density. On average, there are approximately five sub-kebeles per kebele with a typical size of  `r paste(round(mean_EA_area*0.0000010))` $km^2$ per sampled area.  -->
 
  
 ```{r read in data & merge, message=FALSE, warning=FALSE, cache=T, include=FALSE}
@@ -465,20 +468,19 @@ write.csv(EA_join, '../Data/EA_join_james_share.csv')
 ```
 
 
-# Materials and Methods
-In this analysis, we leverage spatial variability and panel data to model the yield responses of wheat and barley to differences in topsoil pH, using recent large-scale farm survey data augmented with remotely sensed variables and other geospatial controls. Our basic strategy is to use empirical insights about these crop-specific yield-pH relationships, in concert with reasoned assumptions about soil pH responses to lime, as the agronomic basis of a location-specific cost comparison of two alternative interventions, lime and fertilizer. Specifically, this analysis provides a comparison of the present value or "current cost" of lime to that of fertilizer required to provide the same yield gain over a `r paste(english(pv_years))` year period[^pv]. Because these factors are spatially explicit, this modeling framework serves us well as both an ex ante evaluation tool as well as a means of targeting lime delivery efforts to those areas where it will be most economically beneficial.
+# Materials and Methods {-}
+In this analysis, we leverage spatial variability and panel data to model the yield responses of wheat and barley to differences in topsoil pH, using recent large-scale farm survey data augmented with remotely sensed variables and other geospatial controls. Our basic strategy is to use empirical insights about these crop-specific yield-pH relationships, in concert with reasoned assumptions about soil pH responses to lime, as the agronomic basis of a location-specific cost comparison of two alternative interventions, lime and fertilizer. Specifically, this analysis provides a comparison of the present value or "current cost" of lime to that of fertilizer required to provide the same yield gain over a `r paste(english(pv_years))` year-period. Present value is the current value of a future flow of money discounted to take into account for compounding at some specified rate of return (discount rate). In this case it is the “current cost” of future payments for lime or fertilizer application(s), or the amount you would need to hold aside today to make these purchases.Because these factors are spatially explicit, this modeling framework serves well as both an ex ante evaluation tool as well as a means of targeting lime delivery efforts to those areas where it will be most economically beneficial. In particular, we explore the extent to which – and where – farmers would benefit from the application of lime to increase yields in comparison to yield gains attainable through nitrogen (N) fertilizers.
 
-[^pv]: Present value is the current value of a future flow of money discounted to take into account for compounding at some specified rate of return (discount rate). In this case  it is the “current cost” of future payments for lime or fertilizer, or the amount you would need to hold aside today to make these purchases.
+## Data {-}
 
-## Data
+### Agricultural Sample Survey Data (2010-2016) {-}
+Our analysis uses annual agricultural production data from the Central Statistical Agency’s (CSA) Agricultural Sample Survey (AgSS) between 2010 and 2016 [@AGSS].  For this study we utilize measures of crop yields in metric tons per hectare (`r paste(yield_units)`), the percentage of plots applied with improved seeds, the percentage of plots that have access to irrigation, the percentage of plots actively receiving extension agent support, the intensity of chemical fertilizer use (kg/ha), and the percentage crops reported as damaged by the farmer. Damages include several factors including weather-related, pests, etc. All AgSS data is reported at the sub-kebele level, which is the unit of analysis for the remainder of this paper. A sub-kebele, or village, is below the smallest government administrative area (kebele), and is representative of approximately 200 agricultural households. For more details about the AgSS refer to Appendix A.
 
-### Agricultural Sample Survey Data (2010-2016)
-Our analysis uses agricultural production data from the Central Statistical Agency’s (CSA) Agricultural Sample Survey (AgSS). The AgSS is collected annually [@AGSS].  For this study we utilize measures of crop yields in metric tons per hectare (`r paste(yield_units)`), the percentage of plots applied with improved seeds, the percentage of plots that have access to irrigation, the percentage of plots actively receiving extension agent support, the intensity of chemical fertilizer use (kg/ha), and the percentage crops reported as damaged by the farmer. Damages include a number of factors including weather-related, pests, etc. All AgSS data is reported at the sub-kebele level, which is the unit of analysis for the remainder of this paper. For more details about the AgSS refer to Appendix A.
+In 2017, the Central Statistics Agency employed a significantly different research design for collecting AgSS data. To maintain the integrity of the panel data set, data beyond 2016 were not used. This also aligns with the EthioSIS soil data collection period described below.
 
-### Soil properties 
-Data on soil properties were collected from the Ethiopian Soil Information System (EthioSIS). EthioSIS is charged with gathering soil samples from all major growing regions to help provide detailed information on soil fertility, and to provide fertilizer recommendations [@EthioSIS]. For this study we access sub-kebele estimates of EthioSIS measures like soil pH, as well as measures of cation exchange capacity[^CEC], soil organic content, and sand content at approximately 15cm depth. We focus on two key categories of soil acidity, moderately acidic soils (5.5 $<$ pH $\le$ 6) and highly acidic soils ($\le$ 5.5). Soil properties are aggregated to the sub-kebele level. For more details on EthioSIS see Appendix A. Soil pH levels across the county can be seen below in Figure `r paste(Figure_number)`.
+### Soil properties {-}
+Data on soil properties were collected from the Ethiopian Soil Information System (EthioSIS). EthioSIS was charged with gathering soil samples from all major growing regions to help provide detailed information on soil fertility, and to provide localized fertilizer recommendations [@EthioSIS]. For this study we access sub-kebele estimates of EthioSIS measures like soil pH, as well as measures of cation exchange capacity, soil organic content, and sand content at approximately 15cm depth. Cation exchange capacity is a measure of a soils ability to hold and supply nutrients to plants and is affected by soil pH. We focus on two key categories of soil acidity, moderately acidic soils (5.5 < pH $\le$ 6) and highly acidic soils ($\le$ 5.5). Soil properties are aggregated to the sub-kebele level. For more details on EthioSIS see Appendix A. Soil pH levels across the county can be seen below in Figure `r paste(Figure_number)`.
 
-[^CEC]:Cation exchange capacity is a measure of a soils ability to hold and supply nutrients to plants and is affected by soil pH.
 
 ```{r Plot soil acidity, eval=T, message=FALSE, warning=FALSE, cache=TRUE, include=FALSE, paged.print=FALSE,fig.width=6}
 country = read_sf('../Data/AdminBoundaries/ETH_adm1.shp')
@@ -513,9 +515,9 @@ proj4string(sp_all_EAs_PH)<-  CRS("+init=epsg:32637")
 # save(interp_data,file='../Data/R_images/interp_data.rda')
 ```
 
-*Figure* `r paste(Figure_number)`*: Ethiopia's soil pH balance*`r  Figure_number =Figure_number+1 `
+**Figure `r paste(Figure_number)`: Ethiopia's soil pH balance**`r  Figure_number =Figure_number+1 `
 
-```{r ethioSIS ph map, eval=T, fig.width=5, message=FALSE, warning=FALSE, include=T, cache=T}
+```{r Figure_1, eval=T, fig.width=5, message=FALSE, warning=FALSE, include=T, cache=T}
 library(readstata13)
 
 ethsis = read.dta13('../Data/EthioSIS/EthioSIS_EA_Cleaned_April_4_2019.dta')
@@ -531,20 +533,20 @@ b=ggplot() +    geom_sf(data=st_as_sf(country),aes(),fill='grey90')+
   coord_sf(xlim=c(-90657.53,966145.),ylim=c(418602.3,1607672.7)) +
   theme(axis.text = element_blank(),
         axis.ticks = element_blank())
-ggsave(b, filename = paste0("Images/Figure_",Figure_number-1,"_ethiosis_ph.png"),width = 5, bg = '#ffffff')
+ggsave(b, filename = paste0("Images/Figure_1.png"),width = 5, bg = '#ffffff')
 
 b
 ```
 
-### Remotely Sensed Variables 
+### Remotely Sensed Variables {-}
 This study controls for the impacts of drought and elevation with remotely sensed data.  We obtain hydrological variables from the University of Idaho’s TerraClimate data and utilize a measure of drought called the Palmer Drought Severity Index (PDSI) [@abatzoglou2018terraclimate]. PDSI is an effective measure of longer-term drought. For more details on TerraClimate see Appendix A. Elevation data is obtained from NASA’s Shuttle Radar Topography Mission (SRTM) at 90 meter resolution [@van2001shuttle].
 
-### Other Variables
-Two dummy variables were used to capture policy impacted areas that potentially receive external support.  These two programs include the Agricultural Growth Program (AGP) for high potential growth areas, and those designated for social protection programs using the Poverty Safety Net Program (PSNP).  The AGP intervention is designed to increase productivity and marketed output within high potential agricultural areas. The 83 intervention woredas were obtained from the Ethiopia Strategy and Support Program II’s baseline report [@berhane2013agri].  Ethiopia’s PSNP is an internationally recognized safety net program that provides a variety of social programs to assist poorer households.  There are approximately 200 woredas designated as PSNP woredas and the program was initiated in 2005 [@gilligan2007eth]. We also control for the major agroecological zones of Ethiopia with data from Water Land Resource Center [@WLRC] Additionally, access to markets is controlled for using Euclidean distance to the nearest populated town with more than 50k people [@ngaPP].
+### Other Variables {-}
+Two dummy variables were used to capture areas impacted by national agricultural policy interventions which receive targeted external support. These two programs include the Agricultural Growth Program (AGP) for high potential growth areas, and those designated for social protection programs using the Poverty Safety Net Program (PSNP).  The AGP intervention is designed to increase productivity and marketed output within high potential agricultural areas. The 83 intervention woredas were obtained from the Ethiopia Strategy and Support Program II’s baseline report [@berhane2013agri].  Ethiopia’s PSNP is an internationally recognized safety net program that provides a variety of social programs to assist poorer households.  There are approximately 200 woredas designated as PSNP woredas and the program was initiated in 2005 [@gilligan2007eth]. We also control for the major agroecological zones of Ethiopia with data from The Water Land Resource Center [@WLRC] Additionally, access to markets is controlled for using Euclidean distance to the nearest populated town with more than 50k people [@ngaPP].
 
 
-## Soil pH responses to limestone applications
-In order to estimate lime application rates needed to raise pH levels to desired levels, there are at least seven items to consider in the Ethiopian context [@ristow2010lime], shown in equation `r paste(Formula_number)`:
+## Soil pH responses to limestone applications {-}
+To estimate lime application rates needed to raise pH levels to desired levels, there are at least seven items to consider in the Ethiopian context [@ristow2010lime], shown in equation `r paste(Formula_number)`:
 
 `r limeform= Formula_number; Formula_number=Formula_number+1`
 
@@ -554,27 +556,26 @@ L = (CEC)\left(\frac{BS_{t}-BS_{o}}{2(1-BS_{o})}\right)\left(\frac{TD}{6}\right)
 
 Where *L* is the lime required (mt/ac) can be determined by: cation exchange capacity (CEC), $BS_{t}$ and $BS_{o}$ are the target and original base saturation rates at the current and at the desired pH, respectively, tillage depth (TD) in inches, calcium carbonate equivalent (CCE) of the chosen lime material, relative fineness of the liming materials (F), and adapting estimates to Ethiopian conditions.
 
-For operational purposes, it is important to point out that pH measures only a portion of a soil’s acidity and should not be exclusively used to determine lime requirements. To better measure needed lime requirements the soils “buffer capacity” is projected as a function of sub-kebele values of CEC[^cation] as well as base saturation estimates values determined by a pH-base saturation model [@ketterings2006lime].  Tillage depth (TD) is assumed to be about 15 cm (5.9 in) for traditional oxen plowing in Ethiopia [@abidela2019deep]. Calcium carbonite equivalent is assumed to be 100% (eg. Calcitic limestone) with 100% fineness (F) for quick absorption into the soil. Finally, we index the equation to approximately 3 mt/ha for a 1 unit increase in pH (5.5 to 6.5) to conform with Ethiopian soil scientists’ expert opinion on general national liming rate requirements. Sub-kebele estimates of lime required to obtain a pH of 6.5 shown in Figure A1 in the appendix.
+For operational purposes, it is important to point out that pH measures only a portion of a soil’s acidity and should not be exclusively used to determine lime requirements. To better measure needed lime requirements the soils “buffer capacity” is projected as a function of sub-kebele values of CEC as well as base saturation estimates values determined by a pH-base saturation model [@ketterings2006lime]. Typically, CEC is used for pH measurements above 6.0 and exchange acidity (EA) is used for lower pH levels. Because of EthioSIS data limitations, we use CEC for all pH levels. Tillage depth (TD) is assumed to be about 15 cm (5.9 in) for traditional oxen plowing in Ethiopia [@abidela2019deep]. Calcium carbonite equivalent is assumed to be 100% (eg. Calcitic limestone) with 100% fineness (F) for quick absorption into the soil. Finally, we index the equation to approximately 3 mt/ha for a 1 unit increase in pH (5.5 to 6.5) to conform with Ethiopian soil scientists’ expert opinion on general national liming rate requirements. Sub-kebele estimates of lime required to obtain a pH of 6.5 shown in Figure A1 in the appendix.
+ 
+<!-- [^soilacid]: There are three different forms of soil acidity: active acidity (which is measured by pH), salt-replaceable acidity and residual acidity.  Since pH measures only active acidity, deriving lime estimates based only on this information alone would be signiicantly less accurate. -->
 
-[^cation]: Typically, CEC is used for pH measurements above 6.0 and exchange acidity (EA) is used for lower pH levels.  Because of EthioSIS data limitations, we use CEC for all pH levels.
-[^soilacid]: There are three different forms of soil acidity: active acidity (which is measured by pH), salt-replaceable acidity and residual acidity.  Since pH measures only active acidity, deriving lime estimates based only on this information alone would be signiicantly less accurate.
-
-[^cec]: While CEC is generally used at higher levels acidic pH levels (typically pH 6.1 or greater) we project it to all levels of pH measurements  because of Ethiosis data limitations.
+<!-- [^cec]: While CEC is generally used at higher levels acidic pH levels (typically pH 6.1 or greater) we project it to all levels of pH measurements  because of Ethiosis data limitations. -->
 
 
-## Estimating yield responses to pH changes
+## Estimating yield responses to pH changes {-}
 
-### Exploring Bivariate Relationships
+### Exploring Bivariate Relationships {-}
 Bivariate plots are used to help frame the discussion of the relationship between yields and fertilizer or lime applications. We use sub-kebele level observations from the AgSS, pooling data from the 2010-2016 growing seasons. Because there are thousands of observations, they are summarized with Loess smothers. In each figure the colored lines are the result of Loess smothers tracing the non-linear relationship between the observations of the x and y factors, and the 95% confidence intervals are in gray. These plots, while informative, are simplistic as the impacts of any particular variable should be evaluated in a multivariate context. 
 
-### Multivariate Estimation Strategy
-In order to examine the marginal effect of grain output per hectare to changes in soil acidity, we control for the effects of other variables such as water availability, soil properties, elevation, and management differences. To do this a fixed effects regression is used on all sub-kebeles for 2010-2016 with year and agricultural zone fixed effects. This regression allows us to examine how a one unit increase in fertilizer or pH relates to wheat yields while controlling for other potential determinants of productivity.
+### Multivariate Estimation Strategy {-}
+In order to examine the marginal effect of grain output per hectare to changes in soil acidity, we control for the effects of other variables such as water availability, soil properties, elevation, policy interventions, and management differences. To do this a regression is used on all sub-kebeles for 2010-2016 with year and agricultural zone fixed effects. This regression allows us to examine how a one unit increase in fertilizer or pH relates to wheat yields while controlling for other potential determinants of productivity.
  
-To better address the highly non-linear nature of many of these relationships, polynomials are applied to all independent variables. The order of the polynomial is established using recursive nested ANOVAs to test the hypothesis that a model $M_1$ is sufficient to explain the data against the hypothesis that a more complex model $M_2$ is required. In our yield response model, we control for a variety of independent variables. These are defined below:
+To better address the highly non-linear nature of many of these relationships, polynomials are applied to all independent variables. The order of the polynomial is established using recursive nested ANOVAs to test the hypothesis that a model $M_1$ is sufficient to explain the data against the hypothesis that a more complex model $M_2$ is required. In our yield response model, we control for a variety of independent variables. These are defined Table `r paste(Table_number)` below:
 
 \newpage
 
-*Table* `r paste(Table_number)`*: Variable Definitions and Sources*`r variables =Table_number; Table_number =Table_number+1 `
+**Table `r paste(Table_number)`: Variable Definitions and Sources**`r variables =Table_number; Table_number =Table_number+1 `
 
 ```{r variable definitions,  message=FALSE, warning=FALSE, include=T}
 
@@ -612,18 +613,15 @@ variables = data.frame(Name = c('PH','CEC',
 flextable(variables) %>%  merge_v( j = 3 ) %>% border_inner_h(border = std_border ,part='body') %>% autofit() %>% fix_border_issues()
 
 ```
-in order to test the sensitivity of these regressions a number of alternative specifications are presented in Appendix B. 
+In order to test the sensitivity of these regressions a number of alternative specifications are presented in Appendix B. 
 
 
-## Spatially varying input prices 
-A key part of our approach is recognizing that, like agronomic response, the economic returns to liming differ by location. This is particularly salient in a country like Ethiopia, where complex terrain and market access have important implications for marketed prices and, consequently, the economic attractiveness of productive investments [@minten2013last]. In our analysis, we address this through spatially explicit estimates of agricultural lime application.
+## Spatially varying input prices {-}
+A key part of our approach is recognizing that, like agronomic response, the economic returns to liming differ by location. This is particularly salient in a country like Ethiopia, where complex terrain and market access have important implications for marketed prices and, consequently, the economic attractiveness of productive investments [@minten2013last]. In our analysis, we address this through spatially explicit estimates of agricultural lime application cost.
 
-Because the market for agricultural lime has not yet been developed in Ethiopia, market prices are not available. We therefore estimate the distribution costs of delivered lime to cooperative unions or other private input distributors on the basis of current crusher locations at Butajira, Guder and Dejen. One metric ton (mt) of lime at each crusher location was assumed to cost 750 ETB. From each crusher location, the cumulative travel time from all locations in the country was calculated on the basis of a spatial cost-distance model, which factored in road network data [@haklay2008osm], discounted by terrain steepness. This price includes transportation costs from lime crushing facilities to distribution centers, but does not include either the "last-mile" transport or application costs. We assume a fixed loading cost of 100 ETB/mt and variable transport costs of 60 ETB/mt/hr. Resulting estimates of delivered lime costs are shown in Figure A2 in the appendix, with representative lime cost estimates provided for major towns of interest listed in Table `r paste(Table_number)` below.
-
-
-
+Because the market for agricultural lime has not yet been developed in Ethiopia, market prices are not available. We therefore estimate the distribution costs of delivered lime to cooperative unions or other private input distributors on the basis of current crusher locations at Butajira, Guder and Dejen. One metric ton (mt) of lime at each crusher location was assumed to cost 750 Ethiopian Birr (ETB). To conform to our period of analysis, we use December 2016 exchange rates ($1=22.07 ETB). From each crusher location, the cumulative travel time from all locations in the country was calculated on the basis of a spatial cost-distance model, which factored in road network data [@haklay2008osm], discounted by terrain steepness. This price includes transportation costs from lime crushing facilities to distribution centers, but does not include either the "last-mile" transport or application costs. We assume a fixed loading cost of 100 ETB/mt and variable transport costs of 60 ETB/mt/hr. Resulting estimates of delivered lime costs are shown in Figure A2 in the appendix, with representative lime cost estimates provided for major towns of interest listed in Table `r paste(Table_number)` below.
  
-*Table* `r paste(Table_number)`: Input Distributors Lime Cost Predictions for Different Locations`r variables =Table_number; Table_number =Table_number+1 `
+**Table `r paste(Table_number)`: Input Distributors Lime Cost Predictions for Different Locations**`r variables =Table_number; Table_number =Table_number+1 `
 
 ```{r transport example table,  message=FALSE, warning=FALSE, include=T}
 variables = read.csv('../Data/Lime_TransCost_examples.csv')
@@ -647,31 +645,30 @@ flextable(trans_data) %>%  merge_v( j = 3 ) %>% border_inner_h(border = std_bord
 
 <!-- **Figure 3: Predicted market prices of barley and wheat** -->
 
-## Cost Comparisons of Lime and Fertilizer Application 
+## Cost Comparisons of Lime and Fertilizer Application {-}
 
-To understand differences between the cost of lime and fertilizer we need some normalized basis of comparison. To do this we estimate the marginal response in yields, corresponding to differences in pH and fertilizer for wheat and barley. We then estimate, for the average sub-kebele hectare, how much it would cost to reduce acidity from, for instance, a pH of 5.5 to 6.5 through the application of lime, and the yield response of this intervention measured in `r yield_units`. In contrast, we can also estimate the amount and cost of fertilizer required to obtain the same yield response (`r paste(yield_units)`) expected from that lime treatment and compare them. This comparison is presented throughout the paper as 'X Cost of Lime', and is the economic costs of fertilizer divided by the cost of lime - for some specified yield response - typically that of bringing the observed pH up to 6.5. 
+To understand differences between the cost of lime and fertilizer we need some normalized basis of comparison. To do this we estimate the marginal response in yields, corresponding to differences in pH and fertilizer for wheat and barley. We then estimate, for the average sub-kebele hectare, how much it would cost to reduce acidity from, for instance, a pH of 5.5 to 6.5 through the application of lime, and the average yield response of this intervention measured in `r yield_units`. In contrast, we can also estimate the amount and cost of fertilizer required to obtain the same yield response (`r paste(yield_units)`) expected from that lime treatment and compare them. This comparison is presented throughout the paper as 'X Cost of Lime', and is the economic costs of fertilizer divided by the cost of lime - for some specified yield response - typically that of bringing the observed pH up to 6.5. 
 
 
-## Present Value of Future Lime and Fertilizer Expenditures
-To compare the costs of lime and fertilizer, it is critical to note that fertilizers require annual applications, while lime is conservatively assumed to be applied once every `r paste(english(pv_years))` years. Fertilizer applications therefore need to be thought of as a repeated annual cost over the `r paste(english(pv_years))` period, subject to the present value calculation.
+## Present Value of Future Lime and Fertilizer Expenditures {-}
+To compare the costs of lime and fertilizer, it is critical to note that fertilizers require annual applications, while lime is assumed to be applied once every `r paste(english(pv_years))` years. Fertilizer applications therefore need to be thought of as a repeated annual cost over the `r paste(english(pv_years))` period, subject to a present value calculation.
 
-For present value calculations we assume that the annual costs of Urea and NPS fertilizer are `r prettyNum(fertilizer_P_kg, scientific=FALSE, big.mark=",")` ETB/kg or $`r birr_to_dollar(fertilizer_P_kg)`[^exrate], reflecting costs during our period of analysis. These costs are discounted across `r paste(english(pv_years))` years, at an annual discount rate of `r discount_rate*100`% and an inflation rate of `r inflation*100`%. These rates reflect savings interest rates and consumer price indices [@nbe; @wbCPI], note that the maximum bank deposit rates minus inflation results in a negative real rate of return and is indicative of a heavily regulated and repressive financial system.
+For present value calculations we assume that the annual costs of Urea and NPS fertilizer are `r prettyNum(fertilizer_P_kg, scientific=FALSE, big.mark=",")` ETB/kg or `r birr_to_dollar(fertilizer_P_kg)`, reflecting costs during our period of analysis (Dec 2016). These costs are discounted across `r paste(english(pv_years))` years, at an annual discount rate of `r discount_rate*100`% and an inflation rate of `r inflation*100`%. These rates reflect savings interest rates and consumer price indices [@nbe; @wbCPI], note that the maximum bank deposit rates minus inflation results in a negative real rate of return and is indicative of a heavily regulated and repressive financial system.
  
-[^exrate]: A December `r paste(birr_convert_date)` Birr/$ exchange rate of `r paste(birr_convert)` to conform to the 2016 production data.
 
  
-# Results and Discussion
+# Results and Discussion {-}
 
-## Bivariate Descriptive Analysis
+## Descriptive Analysis {-}
 `r oph_ph =Figure_number`
+### Bivariate Plots {-} 
 
-In this section we explore the bivariate relationship between soil pH and agricultural productivity as measured by wheat and barley yields (`r paste(yield_units)`). Figure `r oph_ph` shows yield plotted against pH.
+In this section we explore the bivariate relationship between soil pH and agricultural productivity as measured by wheat and barley yields (`r paste(yield_units)`). Figure `r oph_ph` shows yield plotted against pH for both barley and wheat.
 
-\newpage
+ 
+**Figure `r paste(Figure_number)`: Bivariate relationship between crops yields and soil pH**`r  Figure_number =Figure_number+1 `
 
-*Figure* `r paste(Figure_number)`*: Bivariate relationship between crops yields and soil pH*`r  Figure_number =Figure_number+1 `
-
-```{r plot wheat oph vs ph, echo=FALSE, fig.width=5, message=FALSE, warning=FALSE, cache=T, paged.print=FALSE}
+```{r Figure_2, echo=FALSE, fig.width=5, message=FALSE, warning=FALSE, cache=T, paged.print=FALSE}
  
 ph_oph_all = tidy(lm(PH~ MAIZE_OPH_w ,data=EA_join))
  
@@ -703,18 +700,17 @@ d = ggplot(data=ph_oph_fert %>% filter(Crop != 'Maize' ),aes(x=PH,y=qq2ton(OPH) 
       facet_wrap(.~factor(Crop ),scales='fixed') + theme_minimal() + 
       xlab('Mean pH') +ylab(paste0('Yields (',yield_units,')')) 
  
-ggsave(d, filename = paste0("Images/Figure_",Figure_number-1,"_yield_mn_ph.png"),width = 5, bg = '#ffffff')
+ggsave(d, filename = paste0("Images/Figure_2.png"),width = 5, bg = '#ffffff')
 d
 ```
 
 Consistent with literature, we see a concave response of yield to pH for wheat and barley, both peaking near 6.5. To see if wheat farmers are adapting to highly acidic soils by applying more fertilizer, we plot observations of intensity of fertilizer use (kg/ha) against soil pH for wheat in Figure `r paste(Figure_number)`.
 
-\newpage
-
+ 
 `r fert_ph_fig_num =Figure_number`
-*Figure* `r paste(Figure_number)`*: Estimated relationship between fertilizer use and soil pH for wheat*`r  Figure_number =Figure_number+1 `
+**Figure `r paste(Figure_number)`: Estimated relationship between fertilizer use and soil pH for wheat**`r  Figure_number =Figure_number+1 `
 
-```{r plot wheat oph vs fertilizer utilization wheat, echo=FALSE, fig.width=5, message=FALSE, warning=FALSE, cache=T}
+```{r Figure_3, echo=FALSE, fig.width=5, message=FALSE, warning=FALSE, cache=T}
 
 ph_fert_lm_wheat = tidy(lm(Fert~PH*factor(REGION_NAME),
                            data=ph_oph_fert[ph_oph_fert$Crop=='Wheat',]))
@@ -729,16 +725,16 @@ e = ggplot(data=ph_oph_fert[ph_oph_fert$Crop=='Wheat',],
     xlab('Mean pH') +
     ylab('Fertilizer (kg/ha)')  +ggtitle('Wheat')+theme(plot.title = element_text(hjust = 0.5))
 
-ggsave(e, filename = paste0("Images/Figure_",Figure_number-1,"_fertilizer_mn_ph.png"),width = 5, bg = '#ffffff')
+ggsave(e, filename = paste0("Images/Figure_3.png"),width = 5, bg = '#ffffff')
 
 e
 
 ```
  
-Figure `r fert_ph_fig_num` depicts regional differences in fertilizer application and pH levels. Amhara's lower pH corresponds to significantly higher utilization of fertilizer in wheat (p < `r p_pretty_sci(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH",'p.value'])`), implying that for each one unit decrease in pH (more acidic) farmers apply an additional `r round(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH",'estimate'],1)*-1` Kg/ha of chemical fertilizers. In Tigray, there are a handful of sub-kebeles applying large amounts of fertilizer to highly acidic soils, and across the region fertilizer application decrease with pH (p < `r round(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH:factor(REGION_NAME)Tigray",'p.value'],2)`). Meanwhile, farmers in Oromia appear to target additional fertilizers to areas with ideal pH, and SNNP appears to significantly increase fertilizer applications in soils with higher alkalinity (p < `r p_pretty_sci(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH:factor(REGION_NAME)SNNP",'p.value'])`).
+Figure `r fert_ph_fig_num` depicts regional differences in fertilizer application and pH levels. In Amhara lower pH values correspond to significantly higher utilization of fertilizer in wheat (p < `r p_pretty_sci(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH",'p.value'])`), implying that for each one unit decrease in pH (more acidic) farmers apply an additional `r round(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH",'estimate'],1)*-1` Kg/ha of chemical fertilizers. In Tigray, there are a handful of sub-kebeles applying large amounts of fertilizer to highly acidic soils, and across the region fertilizer application decrease with pH (p < `r round(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH:factor(REGION_NAME)Tigray",'p.value'],2)`). Meanwhile, farmers in Oromia appear to target additional fertilizers to areas with ideal pH, and SNNP appears to significantly increase fertilizer applications in soils with higher alkalinity (p < `r p_pretty_sci(ph_fert_lm_wheat[ph_fert_lm_wheat$term=="PH:factor(REGION_NAME)SNNP",'p.value'])`).
 
 
-This variety of regional responses to pH likely reflects local policy and extension approaches to address lower than expected yields. Across major growing regions for wheat, Figures `r Figure_number-1` and `r Figure_number` indicate that moderately acidic and neutral soils obtained the highest yields, and significant quantities of fertilizer were sometimes used to offset losses due to pH. Anecdotal evidence from a former Amhara official suggests that fertilizer was heavily emphasized over balancing soil pH to boost flagging yields. Although suggestive, the effectiveness of these mitigation strategies will depend on the relative costs of annual fertilizer applications, and the frequency of lime application. Given this finding, farmers utilizing greater than average amounts of fertilizer, especially urea, may now be suffering from “induced acidification” especially in Amhara and Tigray. Induced acidification occurs during the growth period when crops absorb basic elements such as Ca, Mg, and K to satisfy their nutritional requirements, and removing these lime-like nutrients [@agegnehu2019soil]. 
+This variety of regional responses to pH likely reflects local policy and extension approaches to address lower than expected yields. Anecdotal evidence from a former Amhara official suggests that fertilizer was heavily emphasized over balancing soil pH to boost flagging yields. Although suggestive, the effectiveness of these mitigation strategies will depend on the relative costs of annual fertilizer applications, and the frequency of lime application. Given this finding, farmers utilizing greater than average amounts of fertilizer, especially urea, may now be suffering from “induced acidification” especially in Amhara and Tigray. Induced acidification occurs during the growth period when crops absorb basic elements such as Ca, Mg, and K to satisfy their nutritional requirements, and removing these lime-like nutrients [@agegnehu2019soil]. 
 
 
 
@@ -824,16 +820,16 @@ not_tigray_acid_fert_wheat = fert_acid_md_region_wheat %>% filter(Region != 'Tig
 
 ```
  
-### Moving pH from 5.5 to 6.5 – A simplified case
+### Moving pH from 5.5 to 6.5 – A simplified case {-}
 
-Based on expert opinion from soil scientists knowledgeable abut Ethiopian soil conditions, we can estimate the cost of lime to move the pH one unit, *from 5.5 to 6.5*, with approximately `r paste(round(tons_lime_ha_fn(5.5),2))` metric tons of lime per hectare.  The amount of lime required is roughly approximated using the trend line in Figure A1 in the appendix. We also assume the average distributed price for the major growing regions (Amhara, Oromia, SNNP, and Tigray) of lime is `r round(price,0)` ETB/mt or $`r paste(lime_price_dollars)`. This mean price includes transportation costs from lime crushing facilities to distribution centers but does not include either the "last-mile" transport or farmer application costs. Given these assumptions, the cost of increasing the pH one unit is estimated to be approximately `r round(total_lime_cost,0)` birr or $`r round(total_lime_cost/birr_convert)`.
+Based on expert opinion from soil scientists knowledgeable about Ethiopian soil conditions, we can estimate the cost of lime to move the pH one unit, *from 5.5 to 6.5*, with approximately `r paste(round(tons_lime_ha_fn(5.5),2))` metric tons of lime per hectare.  The amount of lime required is roughly approximated using the trend line in Figure A1 in the appendix. We also assume the average distributed price for the major growing regions (Amhara, Oromia, SNNP, and Tigray) of lime is `r round(price,0)` ETB/mt or $`r paste(lime_price_dollars)`. This mean price includes transportation costs from lime crushing facilities to distribution centers but does not include either the "last-mile" transport or farmer application costs. Given these assumptions, the cost of increasing the pH one unit is estimated to be approximately `r round(total_lime_cost,0)` birr or $`r round(total_lime_cost/birr_convert)`.
 
 
 
  
-## Estimating multivariate response of wheat yield to pH changes
+## Estimating multivariate response of wheat yield to pH changes {-}
 
-Estimation results from the model described in the "Multivariate Estimation Strategy" section are shown below (Table `r Table_number`).  This regression allows us to examine how a one unit increase in fertilizer or pH effects wheat and barley yields while controlling for other potential determinants of productivity. The results largely match our expectations and coefficients are statistically significant at higher orders (indicating the statistical importance of non-linear estimation). To test a variety of alternative specifications presented in Appendix B. 
+Estimation results from the model described in the "Multivariate Estimation Strategy" section are shown below (Table `r Table_number`).  This regression allows us to examine how a one unit increase in fertilizer or pH effects wheat and barley yields while controlling for other potential determinants of productivity. The results largely match our expectations and coefficients are statistically significant at higher orders (indicating the statistical importance of non-linear estimation). A variety of alternative specifications are presented in Appendix B. 
  
 
 
@@ -977,7 +973,7 @@ names(barley_lm$coefficients) = names(barley_lm$coefficients) %>% str_remove_all
  
 
 
-barley_form2 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,')  + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],') + 
+barley_form2 =  paste0('BARLEY_OPH_w ~ poly(PH,',3,')  + poly(BARLEY_FERT_PER_AREA_w,',order['BARLEY_FERT_PER_AREA_w'],') +
                             poly(SOC,',order['SOC'],') +  poly(SND,',order['SND'],') + poly(pdsi,',order['pdsi'],')  +
       poly(elevation,',order['elevation'],') +  poly(BARLEY_EXT_AREA_p,',order['BARLEY_EXT_AREA_p'],')   + poly(BARLEY_IMSEED_p,',order['BARLEY_IMSEED_p'],')  +
                                                 poly(BARLEY_DAMAGE_AREA_p,',order['BARLEY_DAMAGE_AREA_p'],') +
@@ -989,9 +985,9 @@ barley_lm2 <- lm(barley_form2, data = barley_EA_join)
 names(barley_lm2$coefficients)[1:4] = c("(Intercept)","poly(PH, 4)1","poly(PH, 4)2","poly(PH, 4)3")
 names(barley_lm2$coefficients)[17] = "poly(BARLEY_IMSEED_p, 3)1"
 names(barley_lm2$coefficients) = names(barley_lm2$coefficients) %>% str_remove_all("BARLEY_")
- 
 
 
+# 
 k = 6; k_fert = 6; k_p=4; fx = F ; bs = 'cr' #
 maize_form = MAIZE_OPH_w ~ s(PH,bs=bs,fx=fx,k=k)+s(MAIZE_FERT_PER_AREA_w,bs=bs,fx=fx,k=k_fert)  +
      s(CEC,bs=bs,fx=fx,k=k) +  s(SOC,bs=bs,fx=fx,k=k)  + s(SND,bs=bs,fx=fx,k=k)   +  s(pdsi,bs=bs,fx=fx,k=k)+
@@ -1009,7 +1005,7 @@ maize_lm<- gam(maize_form, data = maize_EA_join)
 #,message=FALSE, warning=FALSE, paged.print=T,results= if (is_word) 'markup' else 'asis'}
 
 star = stargazer(wheat_lm,wheat_lm2, barley_lm,barley_lm2,
-              #type=ifelse(is_word,'text','latex'), 
+              # type=ifelse(is_word,'text','latex'),
               style = 'ajps',
               type='latex',
           header = F,
@@ -1033,10 +1029,10 @@ star = stargazer(wheat_lm,wheat_lm2, barley_lm,barley_lm2,
 ``` 
 
 \newpage
-*Table* `r paste(Table_number)`*: Wheat & Barley yield regression estimates  *
+**Table `r paste(Table_number)`: Wheat & Barley yield regression estimates**
 `r regression2 =Table_number; Table_number =Table_number+1 `
 
-```{r mylatextable, results = "asis", echo=FALSE}
+```{r mylatextable, results= if (is_word) 'markup' else 'asis',, echo=FALSE}
 
 # remove table # \caption tag
 star = sub('^.+\\caption.+$','', star)
@@ -1044,7 +1040,8 @@ cat(star, sep='\n')
 ```
 \newpage
 
-To isolate the marginal effect of pH and fertilizer on yields, we hold all other variables at their mean (fixed effects variables are set to a specific year and zone), while letting the variable of interest vary. As expected, highly acidic soils (low pH) show low levels of productivity, increasing significantly with higher pH, until an inflection point. Response curves from regressions one and three are shown below. Because lime is largely unavailable to most farmers, these curves are based on spatial variability in observed pH and yields, rather than on plot-level  applications of lime. As such, they are indicative of the impact of lime, and are not definitive results. Further research, at the plot level of the representative farmer using lime, is strongly recommended. 
+To isolate the marginal effect of pH and fertilizer on yields, we hold all other variables at their mean (fixed effects variables are set to a specific year and zone), while letting the variable of interest vary. As expected, highly acidic soils (low pH) show low levels of productivity, increasing significantly with higher pH, until an inflection point. Response curves from regressions one and three are shown below. Because lime is largely unavailable to most farmers, these curves are based on spatial variability in observed pH and yields, rather than on plot-level  applications of lime. As such, they are indicative of the impact of lime, and are not definitive results. More specifically, our spatially aggregated results likely underestimates relative responses at the individual household level. Further research, at the plot level of the representative farmer using lime, is strongly recommended. 
+
 
 ```{r prepare data for splines PH, message=FALSE, warning=FALSE, include=FALSE, paged.print=FALSE}
 
@@ -1127,8 +1124,7 @@ vary_one_lm(lm_form=maize_form, data=na.omit(get_all_vars(maize_form,maize_EA_jo
 
 ```
 
- 
-*Figure* `r paste(Figure_number)`*: Estimated response of wheat yield to changes in pH*`r ph_oph_trace =Figure_number; Figure_number =Figure_number+1 `
+
 
 ```{r prep plot splines Mean pH, echo=FALSE, message=FALSE, warning=FALSE}
   # spline regression estimate
@@ -1168,8 +1164,13 @@ vary_one_lm(lm_form=maize_form, data=na.omit(get_all_vars(maize_form,maize_EA_jo
   ph_frame = rbind(wheat_ggframe_ph,barley_ggframe_ph,maize_ggframe_ph)
 
 ```
+`r ph_oph_trace =Figure_number`
 
-```{r plot splines Mean pH, echo=FALSE, message=FALSE, warning=FALSE}
+Figure `r ph_oph_trace` is used to estimate the yield response obtained from moving pH to a minimum of 6.5. We see differences between soils with a pH of 5.5 to those with 6.5 corresponds to a `r round((WHEAT_PH_oph_impact-1)*100,1)`% increase in yields for wheat, and `r round((BARLEY_PH_oph_impact-1)*100,1)`% for barley, ceteris paribus. However, there are a small number of observations at the tails of the pH distribution where yields increase. These observations are infrequent, as reflected in the increasing 95% confidence intervals, but likely reflect the extraordinary application of fertilizer in low productivity area, especially in Tigray and Amhara (see Figure `r fert_ph_fig_num`). 
+
+**Figure `r paste(Figure_number)`: Estimated response of wheat yield to changes in pH**`r Figure_number =Figure_number+1 `
+
+```{r Figure_4, echo=FALSE, message=FALSE, warning=FALSE}
     
 f  = ggplot()+
       geom_ribbon(data=ph_frame %>% filter(Crop!='Maize'), 
@@ -1179,7 +1180,7 @@ f  = ggplot()+
     theme_minimal()+xlab('pH')+ylab(paste0('Yields (',yield_units,')'))+coord_cartesian(ylim=c(1.0,2.5),xlim=c(5,8))+
       facet_wrap(.~Crop,scales = 'fixed') +scale_y_continuous(breaks = seq(1,50,by=1),) 
 
-ggsave(f, filename = paste0("Images/Figure_",Figure_number-1,"_lime_ophgain.png"),width = 5, bg = '#ffffff')
+ggsave(f, filename = paste0("Images/Figure_4.png"),width = 5, bg = '#ffffff')
 
 # save for bookdown
 #ggsave(paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/lime_ophgain.png"),width=5)  
@@ -1187,11 +1188,9 @@ ggsave(f, filename = paste0("Images/Figure_",Figure_number-1,"_lime_ophgain.png"
 f
 ```
 
-Figure `r ph_oph_trace` is used to estimate the yield response obtained from moving pH to a minimum of 6.5. We see differences between soils with a pH of 5.5 to those with 6.5 corresponds to a `r round((WHEAT_PH_oph_impact-1)*100,1)`% increase in yields for wheat, and `r round((BARLEY_PH_oph_impact-1)*100,1)`% for barley, ceteris paribus. However, there are a small number of observations at the tails of the pH distribution where yields increase. These observations are infrequent, as reflected in the increasing 95% confidence intervals, but likely reflect the extraordinary application of fertilizer in low productivity area, especially in Tigray and Amhara (see Figure `r fert_ph_fig_num`). 
+The gains obtained from the generalized case of moving soil pH from 5.5 to 6.5 for both crops are presented in Table `r paste(Table_number)` below.  
 
-The gains obtained from the generalized case of moving soil pH from 5.5 to 6.5 for both crops is presented in Table `r paste(Table_number)` below.  
-
-*Table* `r paste(Table_number)`*: Estimated yield gains from changing pH from 5.5 to 6.5*`r Table_ph_OPH = Table_number; Table_number =Table_number+1 ` 
+**Table `r paste(Table_number)`: Estimated yield gains from changing pH from 5.5 to 6.5**`r Table_ph_OPH = Table_number; Table_number =Table_number+1 ` 
 
 ```{r benefit of moving from 5_5 to 6_5, message=FALSE, warning=FALSE,  cache=FALSE}
 
@@ -1216,7 +1215,7 @@ ft
 # }
 ```
 
-We can also look at the spatial distribution of these gains in productivity based on actual pH levels. The Appendix presents maps (Figures A2-3) showing the impact of increasing the observed pH to a minimum of 6.5 for both barley and wheat. We can also visualize the marginal response of fertilizer applications:
+We can also look at the spatial distribution of these gains in productivity based on actual pH levels. The Appendix presents maps (Figures A2-3) showing the impact of increasing the observed pH to a minimum of 6.5 for both barley and wheat. We can also visualize the marginal response of fertilizer applications in Figure `r paste(Figure_number)` below:
 
 ```{r prepare data for splines fert lime plots, echo=FALSE, message=FALSE, warning=FALSE, paged.print=FALSE,cache=F}
 
@@ -1264,13 +1263,10 @@ maize_ggframe_fert = get('MAIZE_ggframe_fert')
 ```
 
 
-
-<!-- We also trace the impact of increasing fertilization rates for wheat and barley below.  -->
- 
-*Figure* `r paste(Figure_number)`*: Marginal yield response of wheat yield to changes in fertilizer application holding pH at 5.5*`r fert_oph_trace =Figure_number; Figure_number =Figure_number+1 `
+**Figure `r paste(Figure_number)`: Marginal yield response of wheat yield to changes in fertilizer application holding pH at 5.5**`r fert_oph_trace =Figure_number; Figure_number =Figure_number+1 `
 
 
-```{r plot splines fert, echo=FALSE, message=FALSE, warning=FALSE,cache=F}
+```{r Figure_5, echo=FALSE, message=FALSE, warning=FALSE,cache=F}
 
 # spline regression estimate
 fert_frame = rbind(wheat_ggframe_fert,barley_ggframe_fert)#,maize_ggframe_fert)
@@ -1283,7 +1279,7 @@ g = ggplot()+
       theme_minimal() +xlab('Fertilizer Application (kg/ha)')+
       ylab(paste0('Yields (',yield_units,')'))#+coord_cartesian(xlim=c(0,1465),ylim=c(10,25))
 
-ggsave(g, filename = paste0("Images/Figure_",Figure_number-1,"_fertilizer_mn_ph.png"),width = 5, bg = '#ffffff')
+ggsave(g, filename = paste0("Images/Figure_5.png"),width = 5, bg = '#ffffff')
 g
 # save for bookdown
 #ggsave(paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/fertilizer_ophgain.png"),width=5)  
@@ -1723,7 +1719,8 @@ ft_h_m_acidic_oph = flextable(h_m_acidic_oph%>% filter(Crop!='Maize') %>%
           set_header_labels( values =  header_names)%>%
             fix_border_issues()
 
-save_as_image(x = ft_h_m_acidic_oph,path = 'Images/high_mod_acid_region_oph_graph.png',zoom=2)
+# save_as_image(x = ft_h_m_acidic_oph,path = 'Images/high_mod_acid_region_oph_graph.png',zoom=2)
+save_as_image(x = ft_h_m_acidic_oph,path = 'Images/Figure_6.png',zoom=2)
 
 ```
  
@@ -1750,27 +1747,29 @@ MAIZE_PV_fert_inf   = PV_inf(r=discount_rate, n=pv_years, fv = 0, pmt = MAIZE_to
 wheat_ph_example = wheat_chg_to_6_5 %>% mutate(ph_diff_from_6_5 = 6-PH) %>% filter(PH > 5.5 & PH <= 6)%>% group_by(REGION_NAME)%>%   dplyr::summarize(Region_ph_diff_from_6_5 = median(ph_diff_from_6_5, na.rm = T))  
 ```
 
-## Actual impacts of pH given current conditions
+## Actual impacts of pH given current conditions {-}
 
-The impacts of lime application will vary, following the spatial patterns of soil pH at the sub-kebele level. As such, there is a great deal of variability within and between regions. Careful lime targeting will be required for an effective intervention. While there are "moderately" (5.5 $<$ pH $\le$ 6) acidic soils throughout our four regions of study, our AgSS sample in Tigray covers no moderately acidic areas and a relatively small number of highly acidic ones. This reflects the general lack of acidic soils in the Tigray regions. Because of this, addressing acidic soils in Tigray will have a smaller overall impact on overall productivity and is reflected in Table `r paste(Table_number)`.
+The impacts of lime application will vary, following the spatial patterns of soil pH at the sub-kebele level. As such, there is a great deal of variability within and between regions. Careful lime targeting will be required for an effective intervention. While there are "moderately" (5.5 < pH $\le$ 6) acidic soils throughout our four regions of study, our AgSS sample in Tigray covers no moderately acidic areas and a relatively small number of highly acidic ones. This reflects the general lack of non-acidic soils in the Tigray regions as seen in Figure `r paste(Figure_number)` below. 
 
 <!-- For instance "moderately" acidic soils (5.5 $<$ pH $\le$ 6) in Amhara, Oromia and SNNP are at the median  `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'Amhara','Region_ph_diff_from_6_5'] %>% unlist()`, `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'Oromia','Region_ph_diff_from_6_5'] %>% unlist()`, `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'SNNP','Region_ph_diff_from_6_5'] %>% unlist()` units below a pH of 6 respectively, meanwhile at the median Tigray's barely qualify as "moderately" acidic as they are only  `r wheat_ph_example[wheat_ph_example$REGION_NAME == 'Tigray','Region_ph_diff_from_6_5']%>% unlist()` units below 6.  Solely by the virtue of this difference, the benefits of mitigating “moderately” acidic soils is likely far more beneficial in, for example, Amhara than in Tigray. To explore some of these differences we break down the expected increase in yields from raising the pH of each sub-kebele to a minimum of 6.5 and summarize by crop and region below: -->
 
  
-*Table* `r paste(Table_number)`*: Median yield impact of increasing pH from actual to 6.5 for moderately and highly acidic soils*`r Table_oph_mod_acid =Table_number; Table_number =Table_number+1 `
+**Figure `r paste(Figure_number)`: Median yield impact of increasing pH from actual to 6.5 for moderately and highly acidic soils**`r Table_oph_mod_acid =Figure_number; Figure_number =Figure_number+1 `
 
-![](Images/high_mod_acid_region_oph_graph.png){width=500}
+
+<!-- ![](Images/high_mod_acid_region_oph_graph.png){width=500} -->
+![](Images/Figure_6.png){width=500}
+
 
 
 <!-- As explained earlier, the pH in Amhara, SNNP, and Oromia are at the lower end of “moderately” acidic, therefore gains can be substantial (`r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='Amhara','OPH.Change'],2))`, `r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='SNNP','OPH.Change'],2))`, and `r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='Oromia','OPH.Change'],2))` `r paste(yield_units)` respectively). Meanwhile Tigray's "moderately" acidic soils are extremely close to a pH of 6.5, therefore raising the pH provides virtually no benefit (`r qq2ton(round(acidic_oph[acidic_oph$Crop=='Wheat' & acidic_oph$Region =='Tigray','OPH.Change'],2))` `r paste(yield_units)`) -->
 
-Differences in Table `r Table_oph_mod_acid` are strongly influenced by crop type and how pH varies by region. In highly acidic soils (pH $\le$ 5.5), substantial yield gains are likely obtainable by properly adjusting the pH balance. The median gains for wheat and barley are `r qq2ton(round(h_acidic_oph %>% filter(Crop=='Wheat')%>% select(OPH.Change)%>% unlist() %>% median(),2))` and `r qq2ton(round(h_acidic_oph %>% filter(Crop=='Barley')%>% select(OPH.Change)%>% unlist() %>% median(),2))` (`r paste(yield_units)`), respectively. This uniform yield response across regions can be explained by the overriding influence of a pH significantly at or below a pH of 5.5. 
+Differences in Figure `r Table_oph_mod_acid` are strongly influenced by crop type and how pH varies by region. In highly acidic soils (pH $\le$ 5.5), substantial yield gains are likely obtainable by properly adjusting the pH balance. The median gains for wheat and barley are `r qq2ton(round(h_acidic_oph %>% filter(Crop=='Wheat')%>% select(OPH.Change)%>% unlist() %>% median(),2))` and `r qq2ton(round(h_acidic_oph %>% filter(Crop=='Barley')%>% select(OPH.Change)%>% unlist() %>% median(),2))` (`r paste(yield_units)`), respectively. This uniform yield response across regions can be explained by the overriding influence of a pH significantly at or below a pH of 5.5. In moderately acidic soils (5.5 < pH $\le$  6) these benefits attenuate and vary region-by-region according to their differences in mean pH.
 
 
-## Economic costs comparison of lime and fertilizer 
+## Economic costs comparison of lime and fertilizer  {-}
 In this section, we can compare the present value of applications of lime and fertilizer for the generalized case (moving pH from 5.5 to 6.5 and holding the delivered lime price at is mean) required to obtain the same yield increase (`r round(qq2ton(WHEAT_PH_oph_spline_OPH),1)` and `r round(qq2ton(BARLEY_PH_oph_spline_OPH),1)` `r paste(yield_units)` for wheat and barley from Table `r paste(Table_ph_OPH)`) for both interventions.
 
-*Table* `r paste(Table_number)`*: Average present value of lime and fertilizer applications required to obtain yield increase equivalent to moving pH from 5.5 to 6.5*`r Table_PV =Table_number; Table_number =Table_number+1 `
 
 ```{r current cost table, message=FALSE, warning=FALSE, include=T, results='asis'}
 
@@ -1821,7 +1820,6 @@ ft = flextable(PV_dataframe %>% filter(Crop!='Maize')) %>% set_formatter_type(fm
 
 
 ft = autofit(ft,add_w=0) %>% border_inner_h(border = std_border ,part='body')   %>%      fix_border_issues()
-ft
 
 
 # save_as_image(x = ft, path = 'Images/national_PV_interventions.png')
@@ -1832,8 +1830,17 @@ ft
 
 
 ```
+`r Table_PV =Table_number`
 
-For soils with a pH of 5.5, the average present value of fertilizer use for wheat is `r round(WHEAT_PV_fert_inf/PV_lime_inf,1)` times that of a single application of lime (Table `r Table_PV`). Meanwhile the present value of a comparable fertilizer application for barley is `r round(BARLEY_PV_fert_inf/PV_lime_inf,1)` times that of lime, or in other words, for barley fertilizer is `r (round(BARLEY_PV_fert_inf/PV_lime_inf,1)-1)*100`% more expensive than lime. As such, lime can likely provide substantial savings particularly for wheat farmers but also barley. 
+For soils with a pH of 5.5, the average present value of fertilizer use for wheat is negative and `r round(WHEAT_PV_fert_inf/PV_lime_inf,1)` times that of a single application of lime (Table `r Table_PV`). Implying for wheat planted in soils with a pH of 5.5, fertilizers are `r round(WHEAT_PV_fert_inf/PV_lime_inf,1)*100`% more expensive for a 0.3 mt/ha increase in yield. Meanwhile the present value of a comparable fertilizer application for barley is `r round(BARLEY_PV_fert_inf/PV_lime_inf,1)` times that of lime, or in other words, for barley fertilizer is `r (round(BARLEY_PV_fert_inf/PV_lime_inf,1)-1)*100`% more expensive than lime. As such, lime can likely provide substantial savings particularly for wheat but also barley farmers.
+
+**Table `r paste(Table_number)`: Average present value of lime and fertilizer applications required to obtain yield increase equivalent to moving pH from 5.5 to 6.5**`r Table_number =Table_number+1 `
+
+```{r current cost table print, message=FALSE, warning=FALSE, include=T, results='asis'}
+ft
+```
+
+
 
 
 <!-- Additionally, the cost savings of lime are large relative to per capita national income (GNI), which in 2016 was `r round(GNI_2016_ETB)*-1`ETB or $`r GNI_2016*-1` [@wbGNI]. As such, the cost of fertilizer for wheat was `r round((WHEAT_PV_fert_inf-PV_lime)/GNI_2016_ETB,2) *-100`% of GNI per capita, and `r round((BARLEY_PV_fert_inf-PV_lime)/GNI_2016_ETB,2) *-100`% for barley. These benefits however are unevenly distributed, following spatial patterns of soils and transportation costs across regions.  -->
@@ -1884,7 +1891,8 @@ ft =
   fix_border_issues()
 
 ft
-save_as_image(x =  ft, path = 'Images/acid_region_fert_graph.png')
+# save_as_image(x =  ft, path = 'Images/acid_region_fert_graph.png')
+save_as_image(x =  ft, path = 'Images/Figure_7.png')
 
 
 ft = 
@@ -1915,13 +1923,11 @@ ft =
   fix_border_issues()
 
 ft
-save_as_image(x =  ft, path = 'Images/high_acid_region_fert_graph.png')
+# save_as_image(x =  ft, path = 'Images/high_acid_region_fert_graph.png')
+save_as_image(x =  ft, path = 'Images/Figure_8.png')
+
 ```
-
-
-*Table* `r paste(Table_number)`*: Median regional fertilizer requirements to match lime application (minimum pH of 6.5) for acidic soils*`r Table_PV_mild =Table_number; Table_number =Table_number+1 `
-
-![](Images/acid_region_fert_graph.png){width=500}
+ 
 ```{r cost savings}
  X_cost_above_lime =acidic_oph %>% filter(Crop!='Maize')%>% filter(Region!='Tigray') %>%
       mutate(`fert_less_lime`=  round(PV.Fert.needed.match.6.5_inf-PV.Lime.needed.match.6.5_inf,2)) %>%
@@ -1936,14 +1942,15 @@ acid_cost_savings_barley_GNI = acid_cost_savings_barley/GNI_2016_ETB
 acid_lime_cost_savings = data.frame(wheat=acid_cost_savings_wheat_GNI,barley = acid_cost_savings_barley_GNI)
 
 ```
- 
-Table `r paste(Table_PV_mild)` demonstrates that for even moderately acidic soils, from an economic standpoint, the annual application of fertilizer is more costly than an application of lime in all regions and both crops. Tigray is excluded because no moderate pH sub-kebeles were in the AgSS sample.  In the case of wheat, the application of lime is significantly cheaper than the use of fertilizer. Overall these estimates imply a cost savings of, excluding Tigray, `r acid_cost_savings_wheat` ETB and `r acid_cost_savings_barley` ETB per hectare of limed land, for wheat and barley respectively. Even in moderately acidic soils these values are a large portion of one-year agricultural income of `r round(GNI_2016_ETB)`ETB or $`r round(GNI_2016)` in 2016 [@ACCS]. As such, the cost savings of lime for wheat was `r round(acid_lime_cost_savings['wheat'],2) *100` % of one-year agricultural income, and `r round(acid_lime_cost_savings['barley'],2) *100`% for barley spread over a five-year period. These benefits however are unevenly distributed, following spatial patterns of soils and transportation costs across regions. 
 
- 
-*Table* `r paste(Table_number)`*: Median regional fertilizer requirements to match lime application (minimum pH of 6.5) for highly acidic soils*`r Table_PV_region_high_acid =Table_number; Table_number =Table_number+1 `
+`r Table_PV_mild =Figure_number ` 
+From an economic standpoint figure `r paste(Table_PV_mild)` demonstrates that for even moderately acidic soils the annual application of fertilizer is more costly than an application of lime in all regions and both crops, ranging from 110-150% more. Tigray is excluded because no moderate pH sub-kebeles were in the AgSS sample.  In the case of wheat, the application of lime is significantly cheaper than the use of fertilizer. Overall these estimates imply a cost savings of, excluding Tigray, `r acid_cost_savings_wheat` ETB and `r acid_cost_savings_barley` ETB per hectare of limed land, for wheat and barley respectively. Even in moderately acidic soils these values are a large portion of average one-year agricultural household income of `r round(GNI_2016_ETB)`ETB or $`r round(GNI_2016)` in 2016 [@ACCS]. As such, the cost savings of lime application to wheat was `r round(acid_lime_cost_savings['wheat'],2) *100` % of one-year agricultural income, and `r round(acid_lime_cost_savings['barley'],2) *100`% for barley spread over a five-year period. These benefits however are unevenly distributed, following spatial patterns of soils and transportation costs across regions. 
 
-![](Images/high_acid_region_fert_graph.png){width=500}
 
+**Figure `r paste(Figure_number)`: Median regional fertilizer requirements to match lime application (minimum pH of 6.5) for acidic soils** `r Figure_number =Figure_number+1 `
+
+<!-- ![](Images/acid_region_fert_graph.png){width=500} -->
+![](Images/Figure_7.png){width=500}
 
 
 ```{r cost savings high acid}
@@ -1966,12 +1973,17 @@ saveRDS(hacid_lime_cost_savings,'./Images/hacid_lime_cost_savings.rds')
 
 
 ```
+`r Table_PV_region_high_acid =Figure_number`
+For highly acidic soils in Figure `r paste(Table_PV_region_high_acid)`, the economic gains of lime applications become clear, especially for wheat. Across all growing regions, the economic benefit of lime application for wheat in highly acidic soils is `r round(mean_hacid_multiple_wheat,1)` times that of fertilizer applications but reaches as high as `r round(max_hacid_multiple_wheat,1)`. For wheat and barley respectively, this implies a cost savings of, excluding Tigray, `r hacid_cost_savings_wheat` and `r hacid_cost_savings_barley` ETB per hectare of limed land, or `r round(hacid_cost_savings_wheat_GNI*100)`% and `r round(hacid_cost_savings_barley_GNI*100)`% of one-year agricultural income spread over a five-year period.  
 
-For highly acidic soils in Table `r paste(Table_PV_region_high_acid)`, the economic gains of lime applications become clear, especially for wheat. Across all growing regions, the economic benefit of lime application for wheat in highly acidic soils is `r round(mean_hacid_multiple_wheat,1)` times that of fertilizer applications but reaches as high as `r round(max_hacid_multiple_wheat,1)`. For wheat and barely respectively, this implies a cost savings of, excluding Tigray, `r hacid_cost_savings_wheat` and `r hacid_cost_savings_barley` ETB per hectare of limed land, or `r round(hacid_cost_savings_wheat_GNI*100)`% and `r round(hacid_cost_savings_barley_GNI*100)`% of one-year agricultural income spread over a five-year period. We can also look at this graphically on a map shown below:
+**Figure `r paste(Figure_number)`: Median regional fertilizer requirements to match lime application (minimum pH of 6.5) for highly acidic soils**`r  Figure_number =Figure_number+1 `
 
-*Figure* `r paste(Figure_number)`*: Present value ratios of fertilizer relative to lime application for wheat and barley excluding inflation*`r  Figure_number =Figure_number+1 `
+<!-- ![](Images/high_acid_region_fert_graph.png){width=500} -->
+![](Images/Figure_8.png){width=500}
 
-```{r map x cost of lime,   message=FALSE, warning=FALSE, cache=T, include=F}
+
+
+```{r map x cost of lime, fig.height=6, message=FALSE, warning=FALSE, cache=TRUE, include=F}
 
 for (crop in c('wheat', 'barley')) {
   
@@ -2066,20 +2078,24 @@ for (crop in c('wheat', 'barley')) {
 }
 
 joint_plot = grid.arrange(wheat_pv_map, barley_pv_map, ncol=1)
-ggsave(joint_plot, filename = paste0("Images/Figure",Figure_number,"_map_xcostoflime_wheatbarley.png"),width = 5, bg = '#ffffff')
+ggsave(joint_plot, filename = paste0("Images/Figure_9.png"),width = 6, bg = '#ffffff')
 
 ```
+Figure `r paste(Figure_number)` maps the present value ratios of fertilizer and lime interventions across the regions at the sub-kebele level. A value of three indicates that annual fertilizer applications are three times more expensive than a single lime application over a `r paste(english(pv_years))` period.  Areas in grey indicate that fertilizer is likely more effective, largely due to the fact that soils are not acidic. According to our data, the greatest benefits for  application of lime are located in northern SNNP and western areas of Amhara and Oromia, largely following the patterns to highly acidic soils. We also present a web map version of the same data at [our website](https://rpubs.com/mmann1123/costbenefit).
 
-```{r fig.width=9, message=FALSE, warning=FALSE}
+**Figure `r paste(Figure_number)`: Present value ratios of fertilizer relative to lime application for wheat and barley**`r  Figure_number =Figure_number+1 `
 
-grid.arrange(wheat_pv_map, barley_pv_map, ncol=1,widths =)
-
-```
-
-
-Figure `r paste(Figure_number)` maps the present value ratios of fertilizer and lime interventions across the regions at the sub-kebele level. A value of three indicates that annual fertilizer applications are three times more expensive than a single lime application over a `r paste(english(pv_years))` period.  Areas in grey indicate that fertilizer is likely more effective, largely due to the fact that soils are not acidic. According to our data, the greatest cost ratios of applying lime are located in northern SNNP and western areas of Amhara and Oromia, largely following the patterns to highly acidic soils. We also present a web map version of the same data at (https://rpubs.com/mmann1123/costbenefit).
+![](Images/Figure_9.png)
 
 
+<!-- # ```{r Figure_9,  warning=FALSE, include=F} -->
+<!-- # # grid.arrange(wheat_pv_map, barley_pv_map, ncol=1) -->
+<!-- # # joint_plot -->
+<!-- # ``` -->
+
+<!-- ![](/mnt/space/Dropbox/Ethiopia Soil Acidity 2019/Scripts/Images/Figure1_map_xcostoflime_wheatbarley.png) -->
+
+The evidence provided here outlines the potential economic benefits of Ethiopia implementing a similar strategy to Brazil’s, whereby lime was applied acid soil reclamation in their Cerrado region [@borlaug2002feeding; @NOVUS2011]. The Brazilian initiative brought together government resources, the national research institute, and international technical and financial aid to carry out an intensive rehabilitation initiative that resulted in the reclamation of 60 million ha of farmland and created a global production source for wheat. We believe that the Brazilian experience provides an important international template in the possibilities of acid soils management and envision a similar strategy that will have substantially positive impacts for Ethiopia. In addition, given several other African countries growing interest in the impacts of soil acidity, this prototype could serve as a foundation for other countries. The goal is enhanced production by directly addressing the economics of soil health for improving farmer’s livelihoods in Ethiopia and other African countries.
 
 
 ```{r merge for webmap, eval=FALSE, warning=FALSE, include=FALSE}
@@ -2130,42 +2146,38 @@ leaflet(x_cost) %>%
 
 ```
 
-# Conclusion
+# Conclusion {-}
 <!-- In this study, we have estimated the economic and agricultural viability of soil remediation, through the application of lime, using data-driven methods. We utilize observations of agricultural yields for wheat and barley from the AgSS survey for the 2010-2016 growing seasons and control for a variety of confounding effects such as weather, other soil properties, management practices, and government interventions.  -->
 
-Acid soils are a significant and growing problem for agricultural productivity in Ethiopia. Restoring soil pH to optimal ranges for acid intolerant crops, like wheat and barley, could provide a significant boost to productivity at a cost lower than fertilizer. Our results indicate that moderately and highly acidic soils significantly undermine yields for major cereal crops, and estimate the impact of moving pH from 5.5 to 6.5, through a lime remediation strategy, could increase yields by `r round(ph_oph[1,3])`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. Moreover, using spatially explicit soil and input price data we find evidence on a region by region basis for the economic viability of soil remediation through the application of lime, especially in highly acidic areas. At the regional level, taking into account transportation costs, the benefits of lime applications for wheat are as much as `r round(max_hacid_multiple_wheat,1)` times that of fertilizer, or `r round(mean_hacid_multiple_wheat,1)` across all major growing regions. In highly acidic soils this implies a cost savings of, excluding the region of Tigray, `r hacid_cost_savings_wheat`  ETB and `r hacid_cost_savings_barley` ETB per hectare of limed land, for wheat and barley respectively. Moreover these savings are a substantial proportion of the one-year agricultural income per hectare, (`r round(hacid_cost_savings_wheat_GNI*100)`% and `r round(hacid_cost_savings_barley_GNI*100)`% for wheat and barley). Taken as a whole there is substantial evidence that soil remediation can increase yields and economic outcomes for farmers across its acidic regions. Additionally, although not explicitly modeled here, it is likely that the application of lime could also allow farmers to reclaim abandoned farmland, thereby substantially increasing total production in acidic areas.
-
-The evidence provided here outlines the potential economic benefits of Ethiopia implementing a similar strategy to Brazil’s, whereby lime was applied acid soil reclamation in their Cerrado region [@NOVUS2011;@borlaug2002feeding]. The Brazilian initiative brought together government resources, the national research institute, and international technical and financial aid to carry out an intensive rehabilitation initiative that resulted in the reclamation of 60 million ha of farmland and created a global production source for wheat. We believe that the Brazilian experience provides an important international template in the possibilities of acid soils management and envision a similar strategy that will have substantially positive impacts for Ethiopia. In addition, given several other African countries growing interest in the impacts of soil acidity, this prototype could serve as a foundation for other countries. The goal is enhanced production by directly addressing the economics of soil health for improving farmer’s livelihoods in Ethiopia and other African countries.
+Acid soils are a significant and growing problem for agricultural productivity in Ethiopia. Restoring soil pH to optimal ranges for acid intolerant crops, like wheat and barley, could provide a significant boost to productivity at a cost lower than fertilizer. Our results indicate that moderately and highly acidic soils significantly undermine yields for major cereal crops and estimate the impact of moving pH from 5.5 to 6.5, through a lime remediation strategy, could increase yields by `r round(ph_oph[1,3])`%  and `r round(ph_oph[2,3],0)`% for wheat and barley, respectively. Moreover, using spatially explicit soil and input price data we find evidence on a region-by-region basis for the economic viability of soil remediation through the application of lime, especially in highly acidic areas. At the regional level, taking into account transportation costs, the benefits of lime applications for wheat are as much as `r round(max_hacid_multiple_wheat,1)` times that of fertilizer, or `r round(mean_hacid_multiple_wheat,1)` across all major growing regions. In highly acidic soils this implies a cost savings of, excluding the region of Tigray, `r hacid_cost_savings_wheat`  ETB and `r hacid_cost_savings_barley` ETB per hectare of limed land, for wheat and barley respectively. Moreover these savings are a substantial proportion of the one-year agricultural income per hectare, (`r round(hacid_cost_savings_wheat_GNI*100)`% and `r round(hacid_cost_savings_barley_GNI*100)`% for wheat and barley). 
 
 An important caveat to this research is that the data is aggregated at the sub-kebele level, and our model largely exploits spatial variability in yields and soil properties rather than through controlled trials or farmer experience. As such, the results should be viewed as indicative rather than specific to individual farm plots. At the plot-level, given the results of small-scale trials and these results, we believe that productivity enhancements from lime would likely exhibit both greater variation and higher average yields. However, farm level trials would be needed to confirm this hypothesis.
 
-Overall, our findings provide important guidance for the targeting of profitable lime interventions and the development of the lime value chain in Ethiopia. Moreover, the analytic approach we describe may be used by other countries in the region to address soil acidity problems. While our cost comparison is focused on the use of lime, there are other agronomic avenues for raising pH which may also be viable, and which may be more cost effective than traditional approaches to liming, depending upon the technologies and the conditions in which they are applied. Our analytic approach is fundamentally agnostic to the choice of technology. If and when data on alternative technological approaches to acid soils remediation are available, these investment options could be incorporated into this framework. 
+Taken as a whole, there is substantial evidence that soil remediation can increase yields and economic outcomes for farmers across its acidic regions. These findings do not argue for an "either or  decision", choosing between lime and fertilizer, but instead demonstrate that lime should be considered an important and cost effective intervention in Ethiopia. Extensive research indicates that balanced pH is an essential prerequisite to optimal crop yields, especially for crops such as wheat and barley [@agegnehu2021extent]. Therefore, we recommend targeted lime application as part of a greater policy of integrated soil fertility management that includes fertilizer as well as other potential inputs and farm management strategies. Additionally, although not explicitly modeled here, it is likely that the application of lime could also allow farmers to reclaim abandoned farmland, thereby substantially increasing total production in acidic areas.
 
 Finally, the benefits of lime application extend beyond simple yield gains and are worth emphasizing. For example, the benefits of lime application can include: increased Ca Mg and P supply, reduced mineral toxicity, stimulation of microbial activity, avoiding induced acidification through fertilizer application, and more efficient uptake of N and availability, among others. Therefore we recommend targeted lime application as part of a greater policy of integrated soil fertility management that includes fertilizer as well as other potential inputs and farm management strategies.
 
-**Acknowledgments:** This research was generously funded by CIMMYT as part of the TAMASA project. 
- 
+
 \newpage 
 
-# Supplemental Material
+# Supplemental Material {-}
 # Appendix A – Data {-}
 
-**AgSS**
-
-The AgSS is a large-scale survey tasked with measuring agricultural production in Ethiopia at the zonal level.7 Each year the AgSS interviews approximately 45,000 farmers on a range of farm management questions covering some basic demographics of the household as well as a range of questions concerning planting, harvesting and selling at the plot level. Typically, about 20 farm households are randomly sampled from village-level areas of approximately 200 households (the sub-kebele level). From this sampling frame, a random selection of about 2,200 sub-kebeles are chosen as a representative sub-sample for zonal level agricultural production. Population weights are then applied to project agricultural production at the zonal level. For this study, we construct longitudinal data over the six crop seasons and are able to maintain 75% of all households over the 2010-2016 period at the sub-kebele level. 
+## AgSS {-}
+The AgSS is a large-scale survey tasked with measuring agricultural production in Ethiopia at the zonal level. Each year the AgSS interviews approximately 45,000 farmers on a range of farm management questions covering some basic demographics of the household as well as a range of questions concerning planting, harvesting and selling at the plot level. Typically, about 20 farm households are randomly sampled from village-level areas of approximately 200 households (the sub-kebele level). From this sampling frame, a random selection of about 2,200 sub-kebeles are chosen as a representative sub-sample for zonal level agricultural production. Population weights are then applied to project agricultural production at the zonal level. For this study, we construct longitudinal data over the six crop seasons and are able to maintain 75% of all households over the 2010-2016 period at the sub-kebele level. 
 
 While this study collected data on the five principal Ethiopian field crops (teff, wheat, maize, barley, sorghum), we focus here on wheat, and barley because of their importance in Ethiopia’s food system, as well as their sensitivity to soil acidity. The principal unit of analysis is the sub-kebele and all relevant CSA data is aggregated to this level. In our analysis, we amalgamate the production of all 20 households in a sub-kebele as a single representative farmer. This was done for a variety of reasons including the fragmented plot farming system common in Ethiopia as well as CSA data collection methodology. More specifically, CSA data collection methodology relies on crop cuts to estimate productivity at the local level. Depending on the actual number of farmers growing the specific crop, CSA collects up to five different individual farmer crop cuts, averages the yields, and projects this figure onto all plot areas for that crop in the sub-kebele. 
 
 
-**EthioSIS**
+## EthioSIS {-}
 
 EthioSIS is a national soil survey and mapping exercise conducted by the Government of Ethiopia, and competed in 2019.  The objective was to create both a national and woreda-level mapping grid that identifies soil fertility characteristics of agricultural lands for the purpose of assisting in fertilizer advisory service to farmers. The project combined field observation, soil data collection and remote sensing into a comprehensive soil inventory. Over 100,000 soil samples were collected using pre-defined, systematically stratified sampling points of topsoil (0 -20 cm) vs (0-50cm), to determine soil fertility at a 250 m resolution.  The specific process included using a sampling frame based on geo-referenced gridded locations, lab analysis of samples  and predictive models of soil properties as a function of spatial covariates.   
 
-**TerraClimate**
+## TerraClimate {-}
 
 TerraClimate provides monthly estimates of surface water balance at 1/24th of a degree (~4km) spatial resolution.8 Measures of water balance are particularly relevant to this study because it provides an estimate of water available to plants by looking at the balance between water gained from precipitation and runoff, and that lost to evaporative demand. The amount of water moving through a system is driven by two forces: (1) the supply of water through rainfall and (2) the demand for water, driven primarily by energy from the sun, which allows for evaporation and movement of water through plants but is also affected by wind, vapor pressure, and soil properties. Here we use a measure called the Palmer Drought Severity Index which is derived as a measure of the balance between available water due precipitation and potential evapotranspiration [@abatzoglou2014tracking]. 
 
-**PSNP & AGP**
+## PSNP & AGP {-}
 
 The AGP intervention is a large-scale (83 initial woredas) project, funded by the World Bank, designed to increase productivity and marketization within high potential agricultural areas. Intervention woredas were obtained from the Ethiopia Strategy and Support Program II’s baseline report [@berhane2013agri].  Ethiopia’s PSNP is an internationally recognized safety net program that provides a variety of social programs to assist poorer households.  There are approximately 200 woredas designated as PSNP woredas and the program was initiated in 2005 [@gilligan2007eth]. 
 
@@ -2178,11 +2190,11 @@ flextable(saturationtable) %>%   border_inner_h(border = std_border ,part='body'
 
 ```
 
-**Intermediate Products**
+## Intermediate Products {-}
 
-*Figure A1*: *Estimate of average lime required per hectare to amend soil pH at multiple pH levels*`r lime_req_fig_num = Figure_number; Figure_number =Figure_number+1 `
+**Figure A1: Estimate of average lime required per hectare to amend soil pH at multiple pH levels**`r lime_req_fig_num = Figure_number; Figure_number =Figure_number+1 `
 
-```{r lime estimates based on ph and soc from james, eval=T, fig.width=5, include=T}
+```{r Figure_A1, eval=T, fig.width=5, include=T}
 model <- lm(lime_to_6_5~ph, data=lime_mt_EA[lime_mt_EA$ph <6.5,])
 
 c = ggplot(data = lime_mt_EA[lime_mt_EA$ph <6.5,], aes(x=ph, y=lime_to_6_5))+geom_point(alpha=0.3)+ geom_smooth(method = 'lm',se=T)+
@@ -2190,7 +2202,7 @@ c = ggplot(data = lime_mt_EA[lime_mt_EA$ph <6.5,], aes(x=ph, y=lime_to_6_5))+geo
   xlab('pH')+ylab(paste0('Lime required\n(',yield_units,')'))+ 
   annotate("text", x = 6.2, y = 4, label = paste(round(model$coefficients[1],2),"+",round(model$coefficients[2],2),'pH\nR2 =', round(summary(model)$adj.r.squared,2)  ))
 
-ggsave(c, filename = paste0("Images/Figure_A1_lime_ph_plot_.png"),width = 5, bg = '#ffffff')
+ggsave(c, filename = paste0("Images/Figure_A1.png"),width = 5, bg = '#ffffff')
 c
 ```
 
@@ -2198,9 +2210,9 @@ Estimates of delivered input distributors lime costs are shown in a Figure in th
 
 \newpage
 
-*Figure A2*: *Map of estimated input distributors prices of lime* `r  Figure_number =Figure_number+1`
+**Figure A2: Map of estimated input distributors prices of lime** `r  Figure_number =Figure_number+1`
 
-```{r Plot lime cost, fig.width=6, message=FALSE, warning=FALSE, include=T, cache=T}
+```{r Figure_A2, fig.width=6, message=FALSE, warning=FALSE, include=T, cache=T}
 lime_price_raster =  raster('../Data/prices/limecost_mkt.tif')
 
 lime_price_sp_df <- as(lime_price_raster, "SpatialPixelsDataFrame")
@@ -2211,14 +2223,15 @@ d = ggplot() + geom_tile(data=lime_price_sp_df, aes(x=x, y=y,fill=value))+
   xlab('')+ylab('')+theme(axis.text = element_blank(),
         axis.ticks = element_blank())
 
-ggsave(d, filename = paste0("Images/Figure_A2_lime_tran_cost.png"),width = 5, bg = '#ffffff')
-
+# ggsave(d, filename = paste0("Images/Figure_A2_lime_tran_cost.png"),width = 5, bg = '#ffffff')
+ggsave(d, filename = paste0("Images/Figure_A2.png"),width = 6, bg = '#ffffff')
+# d
 ```
-![](Images/Figure_A2_lime_tran_cost.png)
+![](Images/Figure_A2.png)
 
 
 # Appendix B - Results {-}
-**Yield gains from soil remediation**
+## Yield gains from soil remediation {-}
 \setcounter{table}{0}
 
 We can also look at the spatial distribution of these gains in productivity from the application of lime. Below we can see the impact of increasing pH to a minimum of 6.5 for both barley and wheat.  
@@ -2302,9 +2315,15 @@ for (crop in c('wheat', 'barley' )) {
   saveRDS(ph_join, paste0("../Scripts/Images/map_ophgain_",crop,".rds"))
   
   # save rds for bookdown
-  #saveRDS(ph_join, paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/map_ophgain_",crop,".rds"))
+  # saveRDS(ph_join, paste0("../../Ethiopia_Soil_Acidity_2019_Book/Images/map_ophgain_",crop,".rds"))
 
-  ggsave(paste0("../Scripts/Images/map_ophgain_",crop,".png"),width=6,bg='#ffffff')  
+  # ggsave(paste0("../Scripts/Images/map_ophgain_",crop,".png"),width=6,bg='#ffffff') 
+  if(crop == 'wheat'){
+        ggsave(paste0("./Images/Figure_B1.png"),width=6,bg='#ffffff') 
+  }else{
+        ggsave(paste0("./Images/Figure_B2.png"),width=6,bg='#ffffff') 
+  }
+  
 }  
   
 
@@ -2313,13 +2332,15 @@ for (crop in c('wheat', 'barley' )) {
 
 \newpage
 
-*Figure B1*: *Change in wheat yields obtained by increasing pH to a minimum of 6.5*`r   Figure_number =Figure_number+1 `
+**Figure B1: Change in wheat yields obtained by increasing pH to a minimum of 6.5**`r   Figure_number =Figure_number+1 `
 
-![](Images/map_ophgain_wheat.png){width=500}
+<!-- ![](Images/map_ophgain_wheat.png){width=500} -->
+![](Images/Figure_B1.png){width=500}
 
-*Figure B2*: *Change in barley yields obtained by increasing pH to a minimum of 6.5*`r   Figure_number =Figure_number+1 `
+**Figure B2: Change in barley yields obtained by increasing pH to a minimum of 6.5**`r   Figure_number =Figure_number+1 `
 
-![](Images/map_ophgain_barley.png){width=500}
+<!-- ![](Images/map_ophgain_barley.png){width=500} -->
+![](Images/Figure_B2.png){width=500}
 
 ```{r eval=T, include=T, cache=T}
 
@@ -2710,7 +2731,7 @@ barley_lm_sens10<- lm(barley_form_sens10, data = barley_EA_join)
 ```{r sensativity variables wheat, results= if (is_word) 'markup' else 'asis', cache=F }
 stargazer(wheat_lm_sens0,wheat_lm_sens1,wheat_lm_sens2,wheat_lm_sens3,wheat_lm_sens4,wheat_lm_sens5, wheat_lm_sens6,wheat_lm_sens7,
           wheat_lm_sens8,wheat_lm_sens9,wheat_lm_sens10, 
-          title = 'Wheat variable sensativity',
+          title = 'Wheat variable sensitivity',
           type=ifelse(is_word,'text','latex'),
           font.size="scriptsize",
           style = 'ajps',
@@ -2894,9 +2915,6 @@ stargazer(wheat_lm_p0,wheat_lm_p1,wheat_lm_p2,wheat_lm_p3,wheat_lm_p4,#barley_lm
 
 ```{r check poly order barley, results= if (is_word) 'markup' else 'asis', cache=F}
 #####################
-
-
-
 # choose polynomial order 
 barley_poly_results = list()
 order= list()
@@ -3017,7 +3035,7 @@ stargazer(#wheat_lm_p0,wheat_lm_p1,wheat_lm_p2,wheat_lm_p3,wheat_lm_p4,
 ```
 
 
-This paper was generated in R with [@R-knitr;@R-rmarkdown;@knitr2015; @knitr2014;@rmarkdown2018; @rmarkdown2020;@stargazer].
+This paper was generated in R with [@R-knitr;@R-rmarkdown;@knitr2015; @knitr2014; @rmarkdown2020;@stargazer].
   
 
 ```{r}
