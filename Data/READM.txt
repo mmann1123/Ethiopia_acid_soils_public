@@ -1,0 +1,4 @@
+Due to government controls, the data  used to replicate our study (AGSS_minimal_secure.zip, EthioSIS_minimal_secure.zip, Other_minimal_secure.zip) files are 256-bit encrypted. To access the encryption keys please email signed permissions from the contact persons above to the authors.
+
+
+To access the data from EthioSIS you must contact Kiflu Gudeta, Soil Resource Information and Mapping Directorate, Ministry of Agriculture, Ethiopia (email: gkiflu@gmail.com). AgSS data can be accessed by contacting the Data Administrator of Central Statistical Agency, Ethiopia (email: data@csa.gov.et). 
